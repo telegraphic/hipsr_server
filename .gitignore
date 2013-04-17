@@ -1,0 +1,5 @@
+.DS_Store
+icon.gif
+*.pyc
+hipsr_core
+old/
