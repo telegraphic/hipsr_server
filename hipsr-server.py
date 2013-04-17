@@ -26,14 +26,14 @@ import numpy as np
 import cPickle as pkl
 import threading, Queue
 
-import lib.katcp_wrapper as katcp_wrapper
-from   lib.katcp_helpers import stitch, snap, squashData, squashSpectrum, getSpectrum
-import lib.katcp_helpers as katcp_helpers
-import lib.config as config
-import lib.HIPSR5 as hipsr5 
-import lib.astroCoords as coords
-import lib.hipsr_control as hipsr_control
-from lib.printers import Logger
+import hipsr_core.katcp_wrapper as katcp_wrapper
+from   hipsr_core.katcp_helpers import stitch, snap, squashData, squashSpectrum, getSpectrum
+import hipsr_core.katcp_helpers as katcp_helpers
+import hipsr_core.config as config
+import hipsr_core.HIPSR5 as hipsr5 
+import hipsr_core.astroCoords as coords
+import hipsr_core.hipsr_control as hipsr_control
+from   hipsr_core.printers import Logger
 
 # Python metadata
 __version__  = config.__version__
@@ -724,8 +724,6 @@ class katcpServer(threading.Thread):
           threadmon.katcp_ok = False
           raise
         
-
-
 def getSpectraThreaded(fpgalist, queue):
     """ Starts multiple KATCP servers to collect data from ROACH boards
     
@@ -792,6 +790,7 @@ if __name__ == '__main__':
     print "FPGA reprogram:   %s"%config.reprogram
     print "FPGA reconfigure: %s"%config.reconfigure
     print "KATCP port:       %s"%config.katcp_port
+    
     # Configuration parameters
     boffile      = config.boffile
     reprogram    = config.reprogram
