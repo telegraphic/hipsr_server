@@ -12,15 +12,20 @@ in parallel. In addition, there is a thread which acts as a server that listend 
 To write to the HDF data file, these threads append an I/O requests to a FIFO (Queue.Queue) which
 is constantly checked by yet another thread.
 
-Copyright (c) 2012 The HIPSR collaboration. All rights reserved.
+Copyright (c) 2013 The HIPSR collaboration. All rights reserved.
 """
 
 
 import time, sys, os, socket, random, select, re
 from datetime import datetime
 from optparse import OptionParser
-import json
 from collections import deque   # Ring buffer
+
+try:
+    import ujson as json
+except:
+    print "Warning: uJson not installed. Reverting to python's native Json (slower)"
+    import json
 
 import numpy as np
 import cPickle as pkl
@@ -30,9 +35,8 @@ import hipsr_core.katcp_wrapper as katcp_wrapper
 from   hipsr_core.katcp_helpers import stitch, snap, squashData, squashSpectrum, getSpectrum
 import hipsr_core.katcp_helpers as katcp_helpers
 import hipsr_core.config as config
-import hipsr_core.HIPSR5 as hipsr5 
+from   hipsr_core.hipsr6 import createMultiBeam
 import hipsr_core.astroCoords as coords
-import hipsr_core.hipsr_control as hipsr_control
 from   hipsr_core.printers import Logger
 
 # Python metadata
@@ -493,7 +497,7 @@ class hdfServer(threading.Thread):
         
           if tcs_filename: filename = tcs_filename
           else:            filename = '%s.h5'%filestamp
-          self.hdf_file = hipsr5.createMultiBeam(filename, os.path.join(self.dir_path, dirstamp))
+          self.hdf_file    = createMultiBeam(filename, os.path.join(self.dir_path, dirstamp))
           
           time.sleep(1e-3) # Make sure file has created successfully...
           
@@ -569,6 +573,10 @@ class hdfServer(threading.Thread):
             beam.row["im_xy"]      = self.data["raw_data"][key]["im_xy"]
             beam.row["fft_of"]     = self.data["raw_data"][key]["fft_of"]
             beam.row["adc_clip"]   = self.data["raw_data"][key]["adc_clip"]
+            beam.row["xx_cal_on"]  = self.data["raw_data"][key]["xx_cal_on"]
+            beam.row["xx_cal_off"] = self.data["raw_data"][key]["xx_cal_off"]
+            beam.row["yy_cal_on"]  = self.data["raw_data"][key]["yy_cal_on"]
+            beam.row["yy_cal_off"] = self.data["raw_data"][key]["yy_cal_off"]
             beam.row.append()
             beam.flush()
       
