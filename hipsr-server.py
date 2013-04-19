@@ -21,11 +21,12 @@ from datetime import datetime
 from optparse import OptionParser
 from collections import deque   # Ring buffer
 
-try:
-    import ujson as json
-except:
-    print "Warning: uJson not installed. Reverting to python's native Json (slower)"
-    import json
+#try:
+#    import ujson as json
+#except:
+#    print "Warning: uJson not installed. Reverting to python's native Json (slower)"
+#    import json
+import json
 
 import numpy as np
 import cPickle as pkl
@@ -516,11 +517,19 @@ class hdfServer(threading.Thread):
               "firmware"      : config.boffile,
               "acc_len"       : config.fpga_config["acc_len"],
               "fft_shift"     : config.fpga_config["fft_shift"],
+              
               "quant_xx_gain" : config.fpga_config["quant_xx_gain"],
               "quant_yy_gain" : config.fpga_config["quant_yy_gain"],
               "quant_xy_gain" : config.fpga_config["quant_xy_gain"],
               "quant_xy_gain" : config.fpga_config["quant_xy_gain"],
-              "mux_sel"       : config.fpga_config["mux_sel"],
+              
+              "nar_sq_wave_period"    : config.fpga_config["nar_sq_wave_period"], 
+              "nar_quant_yy_gain"     : config.fpga_config["nar_quant_yy_gain"],
+              "nar_quant_xx_gain"     : config.fpga_config["nar_quant_xx_gain"],
+              "nar_fft_shift"         : config.fpga_config["nar_fft_shift"],
+              "nar_acc_len"           : config.fpga_config["nar_acc_len"],
+              
+              "mux_sel"               : config.fpga_config["mux_sel"],
               }
           self.data = {'firmware_config': fpga_config}
           self.writeFirmwareConfig()
@@ -601,6 +610,13 @@ class hdfServer(threading.Thread):
           self.tbFirmwareConfig.row["mux_sel"]         = self.data["firmware_config"]["mux_sel"]
           self.tbFirmwareConfig.row["fft_shift"]	   = self.data["firmware_config"]["fft_shift"]
           self.tbFirmwareConfig.row["acc_len"]	       = self.data["firmware_config"]["acc_len"]
+          
+          self.tbFirmwareConfig.row["nar_sq_wave_period"] = self.data["firmware_config"]["nar_sq_wave_period"]
+          self.tbFirmwareConfig.row["nar_quant_yy_gain"]  = self.data["firmware_config"]["nar_quant_yy_gain"] 
+          self.tbFirmwareConfig.row["nar_quant_xx_gain"]  = self.data["firmware_config"]["nar_quant_xx_gain"] 
+          self.tbFirmwareConfig.row["nar_fft_shift"]      = self.data["firmware_config"]["nar_fft_shift"]     
+          self.tbFirmwareConfig.row["nar_acc_len"]        = self.data["firmware_config"]["nar_acc_len"]       
+          
           self.tbFirmwareConfig.row.append()
           self.tbFirmwareConfig.flush()
 
@@ -757,6 +773,9 @@ if __name__ == '__main__':
     p.add_option("-p", "--projectid", dest="project_id", type="string", default=None,
                  help="Project ID")
     p.add_option("-v", "--verbose", dest="verbose", action='store_true', help="Turn on debugging (verbose mode)")
+    p.add_option("-n", "--new_file_each_obs", dest="new_file_each_obs", action='store_true', 
+                 help="Start a new file each observation. If not passed, TCS will control.")
+
     
     (options, args) = p.parse_args(sys.argv[1:])
     
@@ -834,7 +853,10 @@ if __name__ == '__main__':
     print "--------------------"
     hdfThread = hdfServer(project_id, dir_path)
     hdfThread.setDaemon(True)
-    hdfThread.new_file_each_obs = False
+    if options.new_file_each_obs:
+        hdfThread.new_file_each_obs = True
+    else:
+        hdfThread.new_file_each_obs = False
     hdfThread.start()
     if options.verbose:
         hdfThread.debug = True
