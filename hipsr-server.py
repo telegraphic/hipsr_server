@@ -335,7 +335,7 @@ class tcsServer(threading.Thread):
     def run(self):
         """ Run TCP/IP server """
         try:
-          tcs_regex       = '(?P<cmd>\w+)\s(?P<val>.+)%s'%config.tcs_regex_esc
+          tcs_regex = '(?P<cmd>\w+)\s(?P<val>.+)%s'%config.tcs_regex_esc
           
           print "TCS listener: Waiting for TCS data %s:%s... "%(self.host, self.port)
           open_sockets = []
@@ -488,8 +488,6 @@ class hdfServer(threading.Thread):
           print "\nFile creation"
           print "-------------\n"
           
-          
-          
           if not os.path.exists(self.dir_path):
               print "Creating directory %s"%self.dir_path
               os.makedirs(self.dir_path)
@@ -514,24 +512,8 @@ class hdfServer(threading.Thread):
           self.tbScanPointing   = self.hdf_file.root.scan_pointing
           
           # Write firmware config
-          fpga_config = {
-              "firmware"      : config.boffile,
-              "acc_len"       : config.fpga_config["acc_len"],
-              "fft_shift"     : config.fpga_config["fft_shift"],
-              
-              "quant_xx_gain" : config.fpga_config["quant_xx_gain"],
-              "quant_yy_gain" : config.fpga_config["quant_yy_gain"],
-              "quant_xy_gain" : config.fpga_config["quant_xy_gain"],
-              "quant_xy_gain" : config.fpga_config["quant_xy_gain"],
-              
-              "nar_sq_wave_period"    : config.fpga_config["nar_sq_wave_period"], 
-              "nar_quant_yy_gain"     : config.fpga_config["nar_quant_yy_gain"],
-              "nar_quant_xx_gain"     : config.fpga_config["nar_quant_xx_gain"],
-              "nar_fft_shift"         : config.fpga_config["nar_fft_shift"],
-              "nar_acc_len"           : config.fpga_config["nar_acc_len"],
-              
-              "mux_sel"               : config.fpga_config["mux_sel"],
-              }
+          fpga_config = config.fpga_config
+          fpga_config["firmware"] = config.boffile
           self.data = {'firmware_config': fpga_config}
           self.writeFirmwareConfig()
           self.data = None
@@ -542,125 +524,55 @@ class hdfServer(threading.Thread):
           raise
     
     def writePointing(self):
+        """ Write pointing row from stored data """
         if self.hdf_is_open and self.data:
-          self.tbPointing.row["timestamp"] = self.data["pointing"]["timestamp"]
-          self.tbPointing.row["source"]    = self.data["pointing"]["source"]
-          self.tbPointing.row["ra"]        = self.data["pointing"]["ra"]
-          self.tbPointing.row["dec"]       = self.data["pointing"]["dec"]
+          for key in self.data["pointing"].keys:
+              self.tbPointing.row[key] = self.data["pointing"][key]
           self.tbPointing.row.append()
           self.tbPointing.flush()
 
     def writeObservation(self):
+        """ Write observation row from stored data """
         if self.hdf_is_open and self.data:
-            self.tbObservation.row["telescope"]      = self.data["observation"]["telescope"]
-            self.tbObservation.row["receiver"]       = self.data["observation"]["receiver"]
-            self.tbObservation.row["frequency"]      = self.data["observation"]["frequency"]
-            self.tbObservation.row["date"]           = self.data["observation"]["date"]
-            self.tbObservation.row["project_id"]     = self.data["observation"]["project_id"]
-            #self.tbObservation.row["project_name"]  = self.data["observation"]["project_name"]
-            self.tbObservation.row["observer"]       = self.data["observation"]["observer"]
-            self.tbObservation.row["acc_len"]        = self.data["observation"]["acc_len"]
-            self.tbObservation.row["bandwidth"]      = self.data["observation"]["bandwidth"]
-            self.tbObservation.row["num_beams"]      = self.data["observation"]["num_beams"]
-            self.tbObservation.row["ref_beam"]       = self.data["observation"]["ref_beam"]
-            self.tbObservation.row["feed_rotation"]  = self.data["observation"]["feed_rotation"]
-            self.tbObservation.row["dwell_time"]     = self.data["observation"]["dwell_time"]
-            #self.tbObservation.row["conf_name"]      = self.data["observation"]["conf_name"]
-            self.tbObservation.row["feed_angle"]     = self.data["observation"]["feed_angle"]
-            self.tbObservation.row["scan_rate"]     = self.data["observation"]["scan_rate"]    
+            for key in self.data["observation"].keys():
+                self.tbObservation.row[key]  = self.data["observation"][key]    
             self.tbObservation.row.append()
             self.tbObservation.flush()
   
     def writeRawData(self):
+       """ Write raw_data row from stored data """
       if self.hdf_is_open and self.data:
-        for key in self.data["raw_data"].keys():
-            beam = self.hdf_file.getNode('/raw_data',key)
-            beam.row["id"]         = self.data["raw_data"][key]["id"]
-            beam.row["timestamp"]  = self.data["raw_data"][key]["timestamp"]
-            beam.row["xx"]         = self.data["raw_data"][key]["xx"]
-            beam.row["yy"]         = self.data["raw_data"][key]["yy"]
-            beam.row["re_xy"]      = self.data["raw_data"][key]["re_xy"]
-            beam.row["im_xy"]      = self.data["raw_data"][key]["im_xy"]
-            beam.row["fft_of"]     = self.data["raw_data"][key]["fft_of"]
-            beam.row["adc_clip"]   = self.data["raw_data"][key]["adc_clip"]
-            beam.row["xx_cal_on"]  = self.data["raw_data"][key]["xx_cal_on"]
-            beam.row["xx_cal_off"] = self.data["raw_data"][key]["xx_cal_off"]
-            beam.row["yy_cal_on"]  = self.data["raw_data"][key]["yy_cal_on"]
-            beam.row["yy_cal_off"] = self.data["raw_data"][key]["yy_cal_off"]
+        for beam_id in self.data["raw_data"].keys():
+            beam = self.hdf_file.getNode('/raw_data', beam_id)
+            for key in self.data["raw_data"][beam_id].keys():
+                beam.row[key]  = self.data["raw_data"][beam_id][key]
             beam.row.append()
             beam.flush()
       
     def writeWeather(self):
+      """ Write weather row from stored data """
       if self.hdf_is_open and self.data:
-          self.tbWeather.row["timestamp"]       = self.data["weather"]["timestamp"]
-          self.tbWeather.row["temperature"]     = self.data["weather"]["temperature"]
-          self.tbWeather.row["pressure"]        = self.data["weather"]["pressure"]
-          self.tbWeather.row["humidity"]        = self.data["weather"]["humidity"]
-          self.tbWeather.row["wind_speed"]      = self.data["weather"]["wind_speed"]
-          self.tbWeather.row["wind_direction"]  = self.data["weather"]["wind_direction"]
+          for key in self.data["weather"].keys():
+              self.tbWeather.row[key]       = self.data["weather"][key]
           self.tbWeather.row.append()
           self.tbWeather.flush()
       
     def writeFirmwareConfig(self):
+      """ Write firmware_config row from stored data """
       if self.hdf_is_open and self.data:
-          #print "Writing firmware config"              
-          self.tbFirmwareConfig.row["firmware"]        = self.data["firmware_config"]["firmware"]
-          self.tbFirmwareConfig.row["quant_xx_gain"]   = self.data["firmware_config"]["quant_xx_gain"]
-          self.tbFirmwareConfig.row["quant_yy_gain"]   = self.data["firmware_config"]["quant_yy_gain"]
-          self.tbFirmwareConfig.row["quant_xy_gain"]   = self.data["firmware_config"]["quant_xy_gain"]
-          self.tbFirmwareConfig.row["mux_sel"]         = self.data["firmware_config"]["mux_sel"]
-          self.tbFirmwareConfig.row["fft_shift"]	   = self.data["firmware_config"]["fft_shift"]
-          self.tbFirmwareConfig.row["acc_len"]	       = self.data["firmware_config"]["acc_len"]
-          
-          self.tbFirmwareConfig.row["nar_sq_wave_period"] = self.data["firmware_config"]["nar_sq_wave_period"]
-          self.tbFirmwareConfig.row["nar_quant_yy_gain"]  = self.data["firmware_config"]["nar_quant_yy_gain"] 
-          self.tbFirmwareConfig.row["nar_quant_xx_gain"]  = self.data["firmware_config"]["nar_quant_xx_gain"] 
-          self.tbFirmwareConfig.row["nar_fft_shift"]      = self.data["firmware_config"]["nar_fft_shift"]     
-          self.tbFirmwareConfig.row["nar_acc_len"]        = self.data["firmware_config"]["nar_acc_len"]       
-          
+          for key in self.data["firmware_config"].keys(): 
+              self.tbFirmwareConfig.row[key]        = self.data["firmware_config"][key]      
           self.tbFirmwareConfig.row.append()
           self.tbFirmwareConfig.flush()
 
     def writeScanPointing(self):
+      """ Write scan_pointing row from stored data """
       if self.hdf_is_open and self.data:
-          #print self.tbScanPointing["timestamp"]
-          #print                self.data["scan_pointing"]["timestamp"]         
-          self.tbScanPointing.row["timestamp"]= self.data["scan_pointing"]["timestamp"]
-          self.tbScanPointing.row["mb01_raj"] = self.data["scan_pointing"]["MB01_raj"] 
-          self.tbScanPointing.row["mb01_dcj"] = self.data["scan_pointing"]["MB01_dcj"] 
-          self.tbScanPointing.row["mb02_raj"] = self.data["scan_pointing"]["MB02_raj"] 
-          self.tbScanPointing.row["mb02_dcj"] = self.data["scan_pointing"]["MB02_dcj"] 
-          self.tbScanPointing.row["mb03_raj"] = self.data["scan_pointing"]["MB03_raj"] 
-          self.tbScanPointing.row["mb03_dcj"] = self.data["scan_pointing"]["MB03_dcj"] 
-          self.tbScanPointing.row["mb04_raj"] = self.data["scan_pointing"]["MB04_raj"] 
-          self.tbScanPointing.row["mb04_dcj"] = self.data["scan_pointing"]["MB04_dcj"] 
-          self.tbScanPointing.row["mb05_raj"] = self.data["scan_pointing"]["MB05_raj"] 
-          self.tbScanPointing.row["mb05_dcj"] = self.data["scan_pointing"]["MB05_dcj"] 
-          self.tbScanPointing.row["mb06_raj"] = self.data["scan_pointing"]["MB06_raj"] 
-          self.tbScanPointing.row["mb06_dcj"] = self.data["scan_pointing"]["MB06_dcj"] 
-          self.tbScanPointing.row["mb07_raj"] = self.data["scan_pointing"]["MB07_raj"] 
-          self.tbScanPointing.row["mb07_dcj"] = self.data["scan_pointing"]["MB07_dcj"] 
-          self.tbScanPointing.row["mb08_raj"] = self.data["scan_pointing"]["MB08_raj"] 
-          self.tbScanPointing.row["mb08_dcj"] = self.data["scan_pointing"]["MB08_dcj"] 
-          self.tbScanPointing.row["mb09_raj"] = self.data["scan_pointing"]["MB09_raj"] 
-          self.tbScanPointing.row["mb09_dcj"] = self.data["scan_pointing"]["MB09_dcj"] 
-          self.tbScanPointing.row["mb10_raj"] = self.data["scan_pointing"]["MB10_raj"] 
-          self.tbScanPointing.row["mb10_dcj"] = self.data["scan_pointing"]["MB10_dcj"] 
-          self.tbScanPointing.row["mb11_raj"] = self.data["scan_pointing"]["MB11_raj"] 
-          self.tbScanPointing.row["mb11_dcj"] = self.data["scan_pointing"]["MB11_dcj"] 
-          self.tbScanPointing.row["mb12_raj"] = self.data["scan_pointing"]["MB12_raj"] 
-          self.tbScanPointing.row["mb12_dcj"] = self.data["scan_pointing"]["MB12_dcj"] 
-          self.tbScanPointing.row["mb13_raj"] = self.data["scan_pointing"]["MB13_raj"] 
-          self.tbScanPointing.row["mb13_dcj"] = self.data["scan_pointing"]["MB13_dcj"] 
-          self.tbScanPointing.row["azimuth"]  = self.data["scan_pointing"]["azimuth"]  
-          self.tbScanPointing.row["elevation"]      = self.data["scan_pointing"]["elevation"]  
-          self.tbScanPointing.row["par_angle"]      = self.data["scan_pointing"]["par_angle"]  
-          self.tbScanPointing.row["focus_tan"]      = self.data["scan_pointing"]["focus_tan"]  
-          self.tbScanPointing.row["focus_axial"]    = self.data["scan_pointing"]["focus_axial"]
-          self.tbScanPointing.row["focus_rot"]      = self.data["scan_pointing"]["focus_rot"]
+          for key in self.data["scan_pointing"].keys():  
+              # Look out for capitals!
+              self.tbScanPointing.row[key.lower()] = self.data["scan_pointing"][key]
           self.tbScanPointing.row.append()
           self.tbScanPointing.flush()  
-          
     
     def run(self):
         """ Main HDF writer routine """
@@ -689,8 +601,6 @@ class hdfServer(threading.Thread):
             print "Error: HDF server has crashed."
             threadmon.hdf_ok = False
             raise
-
-
 
 class katcpServer(threading.Thread):
     """ Server to control ROACH boards"""
@@ -932,4 +842,5 @@ if __name__ == '__main__':
         print "HDF thread: %s"%threadmon.hdf_ok
         print "Plotter thread: %s"%threadmon.plotter_ok
         print "KATCP threads: %s"%threadmon.katcp_ok
+        exit()
         
