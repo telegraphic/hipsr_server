@@ -15,12 +15,15 @@ is constantly checked by yet another thread.
 Copyright (c) 2013 The HIPSR collaboration. All rights reserved.
 """
 
-
 import time, sys, os, socket, random, select, re
 from datetime import datetime
 from optparse import OptionParser
 from collections import deque   # Ring buffer
+from warnings import warn
 
+import numpy as np
+import cPickle as pkl
+import threading, Queue
 try:
     import ujson as json
     USES_UJSON = True
@@ -28,10 +31,6 @@ except:
     print "Warning: uJson not installed. Reverting to python's native Json (slower)"
     import json
     USES_UJSON = False
-
-import numpy as np
-import cPickle as pkl
-import threading, Queue
 
 import hipsr_core.katcp_wrapper as katcp_wrapper
 from   hipsr_core.katcp_helpers import stitch, snap, squashData, squashSpectrum, getSpectrum
@@ -48,7 +47,6 @@ __email__    = config.__email__
 __license__  = config.__license__
 __modified__ = datetime.fromtimestamp(os.path.getmtime(os.path.abspath( __file__ )))
 
-
 class threadMonitor(object):
     """ Class for failed thread detection"""
     def __init__(self):
@@ -58,8 +56,7 @@ class threadMonitor(object):
         self.katcp_ok   = False
      
     def allSystemsGo(self):
-        return self.tcs_ok & self.plotter_ok & self.hdf_ok & self.katcp_ok
-         
+        return self.tcs_ok & self.plotter_ok & self.hdf_ok & self.katcp_ok  
         
 class tcsServer(threading.Thread):
     """ TCS server class 
@@ -406,9 +403,10 @@ class tcsServer(threading.Thread):
                                   recv_msg = self.commandDict(cmd, val)
                                   i.send(recv_msg)
         except:
-             print "Error: TCS server crashed."
              threadmon.tcs_ok = False
-             raise             
+             warn("TCS server crashed.", RuntimeWarning)
+             if options.verbose:
+                 raise        
  
 class plotterServer(threading.Thread):
     """ UDP data server for hipsr-gui plotter """
@@ -416,10 +414,8 @@ class plotterServer(threading.Thread):
         threading.Thread.__init__(self)
         self.host = host
         self.port = port
-        
         self.socket   = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udpQueue = deque(maxlen=13*10)
-        
         self.server_enabled = True
         self.debug = False
         
@@ -444,9 +440,10 @@ class plotterServer(threading.Thread):
               except:
                   time.sleep(0.1)
         except:
-            print "Error: Plotter server crashed."
             threadmon.plotter_ok = False
-            raise
+            warn("Plotter server crashed.", RuntimeWarning)
+            if options.verbose:
+                raise
 
 class hdfServer(threading.Thread):
     """ HDF5 Writer thread """
@@ -466,7 +463,6 @@ class hdfServer(threading.Thread):
         self.tbWeather        = None
         self.tbFirmwareConfig = None
         self.tbScanPointing   = None
-        
         self.new_file_each_obs= False 
         self.debug = False
     
@@ -498,11 +494,9 @@ class hdfServer(threading.Thread):
           if tcs_filename: filename = tcs_filename
           else:            filename = '%s.h5'%filestamp
           self.hdf_file    = createMultiBeam(filename, os.path.join(self.dir_path, dirstamp))
-          
           time.sleep(1e-3) # Make sure file has created successfully...
           
-          self.hdf_is_open      = True
-          
+          self.hdf_is_open      = True 
           self.data             = None
           self.tbPointing       = self.hdf_file.root.pointing
           self.tbRawData        = self.hdf_file.root.raw_data
@@ -519,9 +513,10 @@ class hdfServer(threading.Thread):
           self.data = None
           
       except:
-          print "Error: could not create new file."
           threadmon.hdf_ok = False
-          raise
+          warn("HDF server: Could not create new file.", RuntimeWarning)
+          if options.verbose:
+              raise
     
     def writePointing(self):
         """ Write pointing row from stored data """
@@ -595,12 +590,12 @@ class hdfServer(threading.Thread):
               }
             
               for key in self.data.keys():
-                #print "writing row: %s | "%key,
                 validKeys[key]()
         except:
-            print "Error: HDF server has crashed."
+            warn("HDF server has crashed.", RuntimeWarning)
             threadmon.hdf_ok = False
-            raise
+            if options.verbose:
+                raise
 
 class katcpServer(threading.Thread):
     """ Server to control ROACH boards"""
@@ -617,7 +612,7 @@ class katcpServer(threading.Thread):
                 try:
                     npDict[key][datakey] = npDict[key][datakey].tolist()
                 except:
-                    pass
+                    warn("katcpServer toJSON is acting strange...", RuntimeWarning)
         
         if USES_UJSON:            
             return json.dumps(npDict, double_precision=3)
@@ -641,7 +636,6 @@ class katcpServer(threading.Thread):
             hdfData = {'raw_data': { beam_id : data }}     
             plotData = squashSpectrum(data)
             if hdfThread.hdf_write_enable and hdfThread.hdf_is_open:
-                #print "Putting into queue"
                 hdfThread.hdfQueue.put(hdfData)
             
             msgdata = {beam_id : {
@@ -652,16 +646,14 @@ class katcpServer(threading.Thread):
                    
             msg = self.toJson(msgdata)
             plotterThread.udpQueue.append(msg)
-                
-            #except:
-            #    print "Warning: couldn't grab data from %s"%fpga.host
             
             # Signal to queue task complete
             self.queue.task_done()
         except:
-          print "Error: KATCP server has crashed."
+          warn("KATCP server has crashed.", RuntimeWarning)
           threadmon.katcp_ok = False
-          raise
+          if options.verbose:
+              raise
         
 def getSpectraThreaded(fpgalist, queue):
     """ Starts multiple KATCP servers to collect data from ROACH boards
@@ -669,14 +661,12 @@ def getSpectraThreaded(fpgalist, queue):
     Spawns multiple threads, with each thread retrieving from a single board.
     A queue is used to block until all threads have completed.   
     """
-
     # Run threads using queue
     for fpga in fpgalist:
       katcpQueue.put(fpga)
       
     # Make sure all threads have completed
     katcpQueue.join()
-
 
 #START OF MAIN:
 if __name__ == '__main__':
@@ -690,8 +680,6 @@ if __name__ == '__main__':
     p.add_option("-v", "--verbose", dest="verbose", action='store_true', help="Turn on debugging (verbose mode)")
     p.add_option("-n", "--new_file_each_obs", dest="new_file_each_obs", action='store_true', 
                  help="Start a new file each observation. If not passed, TCS will control.")
-
-    
     (options, args) = p.parse_args(sys.argv[1:])
     
     print "\nHIPSR SERVER"
@@ -727,7 +715,6 @@ if __name__ == '__main__':
     print "-------------"
     print "TCS host:        %15s    port: %5s"%(config.tcs_server,     config.tcs_port)
     print "Plotter host:    %15s    port: %5s"%(config.plotter_host, config.plotter_port)
-    
     print "FPGA firmware:    %s"%config.boffile
     print "FPGA reprogram:   %s"%config.reprogram
     print "FPGA reconfigure: %s"%config.reconfigure
@@ -788,7 +775,6 @@ if __name__ == '__main__':
     
     if(reconfigure): katcp_helpers.reconfigure()
     else: print "skipping reconfiguration.."
-    
     time.sleep(1)
     
     print "\nStarting KATCP servers"
@@ -814,8 +800,7 @@ if __name__ == '__main__':
     if not threadmon.tcs_ok:
         print "It looks like TCS isn't connecting. Most likely the TCP port is already assigned."
         print "You can check if the port is in use by running:"
-        print ">> netstat | grep %s"%config.tcs_port  
-          
+        print ">> netstat | grep %s"%config.tcs_port    
     
     hdfThread.hdf_write_enable = False  
         
@@ -837,7 +822,7 @@ if __name__ == '__main__':
       time.sleep(0.5)
     
     if not threadmon.allSystemsGo():
-        print "Error: Not all threads running! This script will now close."
+        print "Error: One or more server threads have crashed! This script will now close."
         print "TCS thread: %s"%threadmon.tcs_ok
         print "HDF thread: %s"%threadmon.hdf_ok
         print "Plotter thread: %s"%threadmon.plotter_ok
