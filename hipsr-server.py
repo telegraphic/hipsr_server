@@ -21,12 +21,13 @@ from datetime import datetime
 from optparse import OptionParser
 from collections import deque   # Ring buffer
 
-#try:
-#    import ujson as json
-#except:
-#    print "Warning: uJson not installed. Reverting to python's native Json (slower)"
-#    import json
-import json
+try:
+    import ujson as json
+    USES_UJSON = True
+except:
+    print "Warning: uJson not installed. Reverting to python's native Json (slower)"
+    import json
+    USES_UJSON = False
 
 import numpy as np
 import cPickle as pkl
@@ -707,7 +708,11 @@ class katcpServer(threading.Thread):
                     npDict[key][datakey] = npDict[key][datakey].tolist()
                 except:
                     pass
-        return json.dumps(npDict)
+        
+        if USES_UJSON:            
+            return json.dumps(npDict, double_precision=3)
+        else:
+            return json.dumps(npDict)
     
     def run(self):
         """ Thread run method. Fetch data from roach"""
