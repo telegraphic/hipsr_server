@@ -101,7 +101,7 @@ class tcsServer(threading.Thread):
         
         self.scan_pointing = {
             'focus_tan' : 0,
-            'focus_axial' : 0,
+            'focus_axi' : 0,
             'focus_rot'  : 0,
             'par_angle' : 0,
             'azimuth'  : 0,
@@ -521,7 +521,7 @@ class hdfServer(threading.Thread):
     def writePointing(self):
         """ Write pointing row from stored data """
         if self.hdf_is_open and self.data:
-          for key in self.data["pointing"].keys:
+          for key in self.data["pointing"].keys():
               self.tbPointing.row[key] = self.data["pointing"][key]
           self.tbPointing.row.append()
           self.tbPointing.flush()
@@ -530,12 +530,13 @@ class hdfServer(threading.Thread):
         """ Write observation row from stored data """
         if self.hdf_is_open and self.data:
             for key in self.data["observation"].keys():
-                self.tbObservation.row[key]  = self.data["observation"][key]    
+	      if key != 'conf_name':  
+		self.tbObservation.row[key]  = self.data["observation"][key]    
             self.tbObservation.row.append()
             self.tbObservation.flush()
   
     def writeRawData(self):
-       """ Write raw_data row from stored data """
+      """ Write raw_data row from stored data """
       if self.hdf_is_open and self.data:
         for beam_id in self.data["raw_data"].keys():
             beam = self.hdf_file.getNode('/raw_data', beam_id)
