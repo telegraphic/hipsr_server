@@ -1,0 +1,36 @@
+new_file testme.h5
+receiver MULTI  
+freq 1400
+band 400
+src  FakeusA         
+ra   20.0         
+dec  20.0         
+band 1         
+pid P123
+nbeam 13        
+refbeam 1       
+feedrotation STEPPED  
+feedangle 1    
+taccum 1       
+dwell 1        
+confname hipsr_200_16384      
+observer DCP     
+obstype scan
+start
+utc_cycle 2013-10-10-12:00:00.01           
+az 80           
+el  80          
+par 1          
+focustan 1      
+focusaxi 2     
+focusrot 3     
+utc_cycle_end
+utc_cycle 2013-11-11-12:11:11.01           
+az 81           
+el  81          
+par 1          
+focustan 1      
+focusaxi 2     
+focusrot 3     
+utc_cycle_end
+  

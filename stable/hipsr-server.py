@@ -294,7 +294,7 @@ class tcsServer(threading.Thread):
     
     def newFile(self, val):
         # Create new file
-        hdfThread.createNewFile(val.strip())
+        hdfThread.hdfQueue.put({'create_new_file' : val.strip()})
         return self.ack_msg
 
     def commandDict(self, cmd,val):
@@ -530,8 +530,8 @@ class hdfServer(threading.Thread):
         """ Write observation row from stored data """
         if self.hdf_is_open and self.data:
             for key in self.data["observation"].keys():
-	      if key != 'conf_name':  
-		self.tbObservation.row[key]  = self.data["observation"][key]    
+                if key != 'conf_name':  
+                    self.tbObservation.row[key]  = self.data["observation"][key]    
             self.tbObservation.row.append()
             self.tbObservation.flush()
   
@@ -784,6 +784,8 @@ if __name__ == '__main__':
     for i in range(len(fpgalist)):
        t = katcpServer(katcpQueue)
        t.setDaemon(True)
+       if options.verbose:
+           t.debug = True
        t.start()
     print "%i KATCP server daemons started."%len(fpgalist)
     # Tell threadMonitor that all is OK
