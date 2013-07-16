@@ -76,8 +76,6 @@ def getSpectraThreaded(fpgalist, queue):
     # Make sure all threads have completed
     katcpQueue.join()
 
-def ca
-
 
 #START OF MAIN:
 if __name__ == '__main__':
@@ -142,10 +140,10 @@ if __name__ == '__main__':
         print "TCS host:        %15s    port: %5s"%(config.tcs_server,     config.tcs_port)
         print "Plotter host:    %15s    port: %5s"%(config.plotter_host, config.plotter_port)
         print "KATCP port:       %s"%config.katcp_port
-        print "FPGA firmware:    %s"%config.fpga_config[options.flavor]["boffile"]
+        print "FPGA firmware:    %s"%config.fpga_config[options.flavor]["firmware"]
 
         # Configuration parameters
-        boffile      = config.fpga_config[options.flavor]["boffile"]
+        boffile      = config.fpga_config[options.flavor]["firmware"]
         reprogram    = config.reprogram
         reconfigure  = config.reconfigure
         plotter_host = config.plotter_host
@@ -196,7 +194,7 @@ if __name__ == '__main__':
 
         mprint("\nStarting HDF server")
         mprint("--------------------" )
-        hdfThread = HdfServer(project_id, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue)
+        hdfThread = HdfServer(project_id, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue, flavor=options.flavor)
         hdfThread.daemon = True
         hdfThread.start()
 
@@ -207,8 +205,8 @@ if __name__ == '__main__':
         if not options.dummy:
             time.sleep(0.5)
         if not options.skip_reprogram:
-            katcp_helpers.reprogram()
-            katcp_helpers.reconfigure()
+            katcp_helpers.reprogram(options.flavor)
+            katcp_helpers.reconfigure(options.flavor)
         else:
             print "skipping reprogramming..."
             print "skipping reconfiguration.."
@@ -219,7 +217,7 @@ if __name__ == '__main__':
         mprint("------------------------")
         katcp_servers = []
         for i in range(len(fpgalist)):
-           t = KatcpServer(printQueue, mainQueue, katcpQueue, hdfQueue, plotterQueue)
+           t = KatcpServer(printQueue, mainQueue, katcpQueue, hdfQueue, plotterQueue, flavor=options.flavor)
            t.daemon = True
            katcp_servers.append(t)
            t.start()
@@ -228,7 +226,7 @@ if __name__ == '__main__':
         # Now to start data accumulation while loop
         mprint("\n Starting data capture")
         mprint("------------------------")
-        getSpectraThreaded(fpgalist, katcpQueue, flavor=flavor)
+        getSpectraThreaded(fpgalist, katcpQueue)
         acc_old, acc_new = fpgalist[0].read_int('o_acc_cnt'), fpgalist[0].read_int('o_acc_cnt')
         allSystemsGo     = True
         crash = False

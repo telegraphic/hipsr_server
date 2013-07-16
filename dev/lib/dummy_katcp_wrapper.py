@@ -84,7 +84,7 @@ class FpgaClient(object):
     def read(self, bram_id, num_bytes):
         try:
             if self.data_brams.has_key(bram_id):
-                fmt = '>4096L'
+                fmt = '>%iL'%(num_bytes/4)
                 data = self.random_bandpass()[::2]
                 packed = struct.pack(fmt, *data)
                 return packed

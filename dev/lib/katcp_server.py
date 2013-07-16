@@ -22,13 +22,13 @@ import mpserver
 
 class KatcpServer(mpserver.MpServer):
     """ Server to control ROACH boards"""
-    def __init__(self, printQueue, mainQueue, katcpQueue, hdfQueue, plotterQueue, fpga_config):
+    def __init__(self, printQueue, mainQueue, katcpQueue, hdfQueue, plotterQueue, flavor):
         self.name = 'katcp_server'
         self.printQueue       = printQueue
         self.queue            = katcpQueue
         self.plotterQueue     = plotterQueue
         self.hdfQueue         = hdfQueue
-        self.fpga_config      = fpga_config
+        self.flavor           = flavor
         self.debug            = False
         self.timestamp        = time.time()
         super(KatcpServer, self).__init__(self.name, printQueue, mainQueue)
@@ -45,7 +45,9 @@ class KatcpServer(mpserver.MpServer):
             # Grab data from the FPGA
             if fpga.is_connected():
                 time.sleep(random.random()/10) # Spread out
-                data = getSpectrum(fpga, fpga_config)
+                data = getSpectrum(fpga, self.flavor)
+                #self.mprint(self.flavor)
+                #self.mprint(data["xx"].shape)
                 data["timestamp"] = self.timestamp
                 hdfData = {'raw_data': { beam_id : data }}
                 self.hdfQueue.put(hdfData)

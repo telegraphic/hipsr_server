@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
     finally:
         print "Sleeping"
-        time.sleep(1)
+        time.sleep(4)
         sock.sendall("stop\n")
         time.sleep(2)
         sock.sendall("kill\n")
