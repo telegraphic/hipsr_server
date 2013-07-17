@@ -193,9 +193,10 @@ class HdfServer(mpserver.MpServer):
 
                 for key in self.data.keys():
                     if key == 'write_enable':
+                        self.mprint("%s: %s"%(key, self.data[key]))
                         self.setWriteEnable(self.data[key])
                     elif key == 'create_new_file':
-                        #print "HERE: %s"%self.data
+                        print "HERE: %s"%self.data
                         self.createNewFile(self.data[key])
                     elif key == 'safe_exit':
                         self.safeExit()

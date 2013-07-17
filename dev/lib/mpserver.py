@@ -77,4 +77,5 @@ class MpServer(multiprocessing.Process):
         
         except:
             #self.mainQueue.put({'crash' : self.name})
+            self.safeExit()
             raise

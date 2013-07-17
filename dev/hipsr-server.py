@@ -62,21 +62,6 @@ def mprint(msg):
     logfile.close()
 
 
-def getSpectraThreaded(fpgalist, queue):
-    """ Starts multiple KATCP servers to collect data from ROACH boards
-    
-    Spawns multiple threads, with each thread retrieving from a single board.
-    A queue is used to block until all threads have completed.   
-    """
-    # Run threads using queue
-    timestamp = time.time()
-    for fpga in fpgalist:
-        katcpQueue.put([fpga, timestamp])
-      
-    # Make sure all threads have completed
-    katcpQueue.join()
-
-
 #START OF MAIN:
 if __name__ == '__main__':
     
@@ -92,9 +77,9 @@ if __name__ == '__main__':
     p.add_option("-s", "--skip", dest="skip_reprogram", action="store_true",
                  help="Skip reprogramming and reconfiguring ROACH boards.")
     p.add_option("-t", "--test", dest="test", action="store_true",
-                 help="Run in test mode, will write to ./test")
+                 help="Run in test mode, will write to ./test, and expects messages from the python dummy_TCS script.")
     p.add_option("-d", "--dummy", dest="dummy", action="store_true",
-                 help="Run in dummy mode -- uses fake roach boards and fake TCS! For debugging.")
+                 help="Run in dummy mode -- uses fake roach boards. For debugging only.")
     (options, args) = p.parse_args(sys.argv[1:])
 
     try:
@@ -159,7 +144,8 @@ if __name__ == '__main__':
         tcsQueue       = multiprocessing.Queue()
         hdfQueue       = multiprocessing.Queue()
         plotterQueue   = multiprocessing.Queue()
-        katcpQueue     = multiprocessing.JoinableQueue()
+        katcpQueue     = multiprocessing.Queue()
+        
 
         # From this point, using print queue only
         mprint("\nStarting TCS server")
@@ -197,10 +183,17 @@ if __name__ == '__main__':
         hdfThread = HdfServer(project_id, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue, flavor=options.flavor)
         hdfThread.daemon = True
         hdfThread.start()
-
+            
+            
         # Connect to ROACH boards
         mprint("\nConfiguring FPGAs")
         mprint("-----------------\n")
+        
+        is_empty = False
+        while not is_empty:
+            is_empty = nbprint()
+            time.sleep(1e-6)
+        
         fpgalist  = [katcp_wrapper.FpgaClient(roach, config.katcp_port, timeout=10) for roach in config.roachlist]
         if not options.dummy:
             time.sleep(0.5)
@@ -212,22 +205,23 @@ if __name__ == '__main__':
             print "skipping reconfiguration.."
         if not options.dummy:
             time.sleep(1)
-
+            for fpga in fpgalist:
+                fpga.stop()
+            
+        
         mprint("\nStarting KATCP servers")
         mprint("------------------------")
-        katcp_servers = []
-        for i in range(len(fpgalist)):
-           t = KatcpServer(printQueue, mainQueue, katcpQueue, hdfQueue, plotterQueue, flavor=options.flavor)
-           t.daemon = True
-           katcp_servers.append(t)
-           t.start()
+        katcpThread = KatcpServer(printQueue, mainQueue,  hdfQueue, katcpQueue, plotterQueue, flavor=options.flavor)
+        katcpThread.daemon = False
+        katcpThread.start()
+        
         mprint("%i KATCP server daemons started."%len(fpgalist))
-
+        
         # Now to start data accumulation while loop
         mprint("\n Starting data capture")
         mprint("------------------------")
-        getSpectraThreaded(fpgalist, katcpQueue)
-        acc_old, acc_new = fpgalist[0].read_int('o_acc_cnt'), fpgalist[0].read_int('o_acc_cnt')
+        #getSpectraThreaded(fpgalist, katcpQueue)
+        acc_old, acc_new = 0, 0
         allSystemsGo     = True
         crash = False
         hdf_write_enable = False
@@ -239,7 +233,7 @@ if __name__ == '__main__':
                 while not is_empty:
                     is_empty = nbprint()
                     time.sleep(1e-6)
-
+                
                 while not mainQueue.empty():
                     msg = mainQueue.get()
                     #print "HERE: %s"%msg
@@ -259,6 +253,8 @@ if __name__ == '__main__':
                             break
                         if key == 'flavor':
                             changeFlavor(msg[key])
+                        if key == 'new_acc':
+                            acc_new = msg[key]
 
                 if acc_new > acc_old:
                     if hdf_write_enable: wr_en = "[WE]"
@@ -270,9 +266,9 @@ if __name__ == '__main__':
                     ra, dec = float(tcsThread.scan_pointing["MB01_raj"]), float(tcsThread.scan_pointing["MB01_dcj"])
                     mprint("%s UTC: %s, RA: %02.2f, DEC: %02.2f, Acc: %i"%(wr_en, now_fmt, ra, dec, acc_new))
                     acc_old=acc_new
-                    getSpectraThreaded(fpgalist, katcpQueue)
+                    katcpQueue.put({'new_acc': True})
 
-                acc_new = fpgalist[0].read_int('o_acc_cnt')
+                katcpQueue.put({'check_acc': acc_old})
                 time.sleep(0.5)
             except:
                 allSystemsGo = False
@@ -295,13 +291,11 @@ if __name__ == '__main__':
             while not is_empty:
                 is_empty = nbprint()
                 time.sleep(1e-6)
-            for t in katcp_servers:
-                t.join(0.1)
             hdfQueue.put({'safe_exit': ''})
             hdfThread.join(0.1)
             tcsThread.join(0.1)
             plotterThread.join(0.1)
-            katcpQueue.join()
+            katcpThread.join(0.1)
             #print("INFO: Threads killed")
 
     except KeyboardInterrupt:
@@ -314,12 +308,11 @@ if __name__ == '__main__':
             is_empty = nbprint()
             time.sleep(1e-6)
         try:
-            for t in katcp_servers:
-                t.terminate()
+            katcp.terminate()
             hdfThread.terminate()
             tcsThread.terminate()
             plotterThread.terminate()
-            katcpQueue.join()
+            katcpThread.join()
         except:
             pass
         print("INFO: Threads killed")
