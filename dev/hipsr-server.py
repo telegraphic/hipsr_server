@@ -62,6 +62,26 @@ def mprint(msg):
     logfile.close()
 
 
+<<<<<<< HEAD
+=======
+def getSpectraThreaded(fpgalist, queue):
+    """ Starts multiple KATCP servers to collect data from ROACH boards
+    
+    Spawns multiple threads, with each thread retrieving from a single board.
+    A queue is used to block until all threads have completed.   
+    """
+    # Run threads using queue
+    timestamp = time.time()
+    for fpga in fpgalist:
+        katcpQueue.put([fpga, timestamp])
+      
+    # Make sure all threads have completed
+    katcpQueue.join()
+
+def ca
+
+
+>>>>>>> parent of de983d7... Added support for multiple different firmwares
 #START OF MAIN:
 if __name__ == '__main__':
     
@@ -125,10 +145,10 @@ if __name__ == '__main__':
         print "TCS host:        %15s    port: %5s"%(config.tcs_server,     config.tcs_port)
         print "Plotter host:    %15s    port: %5s"%(config.plotter_host, config.plotter_port)
         print "KATCP port:       %s"%config.katcp_port
-        print "FPGA firmware:    %s"%config.fpga_config[options.flavor]["firmware"]
+        print "FPGA firmware:    %s"%config.fpga_config[options.flavor]["boffile"]
 
         # Configuration parameters
-        boffile      = config.fpga_config[options.flavor]["firmware"]
+        boffile      = config.fpga_config[options.flavor]["boffile"]
         reprogram    = config.reprogram
         reconfigure  = config.reconfigure
         plotter_host = config.plotter_host
@@ -180,7 +200,7 @@ if __name__ == '__main__':
 
         mprint("\nStarting HDF server")
         mprint("--------------------" )
-        hdfThread = HdfServer(project_id, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue, flavor=options.flavor)
+        hdfThread = HdfServer(project_id, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue)
         hdfThread.daemon = True
         hdfThread.start()
             
@@ -198,8 +218,8 @@ if __name__ == '__main__':
         if not options.dummy:
             time.sleep(0.5)
         if not options.skip_reprogram:
-            katcp_helpers.reprogram(options.flavor)
-            katcp_helpers.reconfigure(options.flavor)
+            katcp_helpers.reprogram()
+            katcp_helpers.reconfigure()
         else:
             print "skipping reprogramming..."
             print "skipping reconfiguration.."
@@ -211,17 +231,31 @@ if __name__ == '__main__':
         
         mprint("\nStarting KATCP servers")
         mprint("------------------------")
+<<<<<<< HEAD
         katcpThread = KatcpServer(printQueue, mainQueue,  hdfQueue, katcpQueue, plotterQueue, flavor=options.flavor)
         katcpThread.daemon = False
         katcpThread.start()
         
+=======
+        katcp_servers = []
+        for i in range(len(fpgalist)):
+           t = KatcpServer(printQueue, mainQueue, katcpQueue, hdfQueue, plotterQueue)
+           t.daemon = True
+           katcp_servers.append(t)
+           t.start()
+>>>>>>> parent of de983d7... Added support for multiple different firmwares
         mprint("%i KATCP server daemons started."%len(fpgalist))
         
         # Now to start data accumulation while loop
         mprint("\n Starting data capture")
         mprint("------------------------")
+<<<<<<< HEAD
         #getSpectraThreaded(fpgalist, katcpQueue)
         acc_old, acc_new = 0, 0
+=======
+        getSpectraThreaded(fpgalist, katcpQueue, flavor=flavor)
+        acc_old, acc_new = fpgalist[0].read_int('o_acc_cnt'), fpgalist[0].read_int('o_acc_cnt')
+>>>>>>> parent of de983d7... Added support for multiple different firmwares
         allSystemsGo     = True
         crash = False
         hdf_write_enable = False

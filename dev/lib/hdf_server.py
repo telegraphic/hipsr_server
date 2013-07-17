@@ -77,8 +77,7 @@ class HdfServer(mpserver.MpServer):
             if tcs_filename: filename = tcs_filename
             else:            filename = '%s.h5'%filestamp
             self.mprint("Creating file %s"%filename)
-            self.mprint("Flavor: %s"%self.flavor)
-            self.hdf_file = createMultiBeam(filename, os.path.join(self.dir_path, dirstamp), flavor=self.flavor)
+            self.hdf_file    = createMultiBeam(filename, os.path.join(self.dir_path, dirstamp), flavor=self.flavor)
             time.sleep(1e-3) # Make sure file has created successfully...
 
             self.hdf_is_open      = True
@@ -92,8 +91,8 @@ class HdfServer(mpserver.MpServer):
             self.tbScanPointing   = self.hdf_file.root.scan_pointing
 
             # Write firmware config
-            fpga_config = config.fpga_config[self.flavor]
-            fpga_config["firmware"] = fpga_config["firmware"]
+            fpga_config = config.fpga_config
+            fpga_config["firmware"] = config.boffile
             self.data = {'firmware_config': fpga_config}
             self.writeFirmwareConfig()
             self.data = None

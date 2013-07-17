@@ -82,12 +82,17 @@ class katcpThread(threading.Thread):
 
 class KatcpServer(mpserver.MpServer):
     """ Server to control ROACH boards"""
+<<<<<<< HEAD
     def __init__(self, printQueue, mainQueue, hdfQueue, katcpQueue, plotterQueue, flavor):
+=======
+    def __init__(self, printQueue, mainQueue, katcpQueue, hdfQueue, plotterQueue, fpga_config):
+>>>>>>> parent of de983d7... Added support for multiple different firmwares
         self.name = 'katcp_server'
         
         self.printQueue       = printQueue
         self.plotterQueue     = plotterQueue
         self.hdfQueue         = hdfQueue
+<<<<<<< HEAD
         self.katcpQueue       = katcpQueue
         self.flavor           = flavor
         
@@ -109,6 +114,11 @@ class KatcpServer(mpserver.MpServer):
            t.setDaemon(True)
            t.start()
         
+=======
+        self.fpga_config      = fpga_config
+        self.debug            = False
+        self.timestamp        = time.time()
+>>>>>>> parent of de983d7... Added support for multiple different firmwares
         super(KatcpServer, self).__init__(self.name, printQueue, mainQueue)
     
     def triggerDataCapture(self):
@@ -160,4 +170,27 @@ class KatcpServer(mpserver.MpServer):
                     while not self.threadQueue_plotter.empty():
                         self.plotterQueue.put(self.threadQueue_plotter.get())
 
+<<<<<<< HEAD
             
+=======
+            # Grab data from the FPGA
+            if fpga.is_connected():
+                time.sleep(random.random()/10) # Spread out
+                data = getSpectrum(fpga, fpga_config)
+                data["timestamp"] = self.timestamp
+                hdfData = {'raw_data': { beam_id : data }}
+                self.hdfQueue.put(hdfData)
+
+                plotData = squashSpectrum(data)
+                msgdata = {beam_id : {
+                             'xx' : plotData['xx'],
+                             'yy' : plotData['yy'],
+                             'timestamp': time.time()}
+                           }
+
+                msg = self.toJsonDict(msgdata)
+                self.plotterQueue.put(msg)
+
+            # Signal to queue task complete
+            self.queue.task_done()
+>>>>>>> parent of de983d7... Added support for multiple different firmwares
