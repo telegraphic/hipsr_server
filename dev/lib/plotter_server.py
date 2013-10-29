@@ -37,7 +37,7 @@ class PlotterServer(mpserver.MpServer):
             #self.mprint("Info: plotter server enabled")
             try:
                 msg = self.plotterQueue.get()
-
+                #self.mprint(json.loads(msg).keys())
                 try:
                     #self.mprint("sending UDP packet to %s"%self.host)
                     self.socket.send(msg)

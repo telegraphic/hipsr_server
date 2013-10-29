@@ -76,10 +76,6 @@ class MpServer(multiprocessing.Process):
              self.safeExit()
         
         except:
-<<<<<<< HEAD
             #self.mainQueue.put({'crash' : self.name})
             self.safeExit()
-=======
-            self.mainQueue.put({'crash' : self.name})
->>>>>>> parent of de983d7... Added support for multiple different firmwares
             raise

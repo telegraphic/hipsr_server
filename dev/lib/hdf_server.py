@@ -77,7 +77,8 @@ class HdfServer(mpserver.MpServer):
             if tcs_filename: filename = tcs_filename
             else:            filename = '%s.h5'%filestamp
             self.mprint("Creating file %s"%filename)
-            self.hdf_file    = createMultiBeam(filename, os.path.join(self.dir_path, dirstamp), flavor=self.flavor)
+            self.mprint("Flavor: %s"%self.flavor)
+            self.hdf_file = createMultiBeam(filename, os.path.join(self.dir_path, dirstamp), flavor=self.flavor)
             time.sleep(1e-3) # Make sure file has created successfully...
 
             self.hdf_is_open      = True
@@ -91,8 +92,8 @@ class HdfServer(mpserver.MpServer):
             self.tbScanPointing   = self.hdf_file.root.scan_pointing
 
             # Write firmware config
-            fpga_config = config.fpga_config
-            fpga_config["firmware"] = config.boffile
+            fpga_config = config.fpga_config[self.flavor]
+            fpga_config["firmware"] = fpga_config["firmware"]
             self.data = {'firmware_config': fpga_config}
             self.writeFirmwareConfig()
             self.data = None
@@ -163,6 +164,7 @@ class HdfServer(mpserver.MpServer):
                 self.mprint("hdf_server: closing %s"%self.hdf_file.filename)
                 self.hdf_file.flush()
                 self.hdf_file.close()
+                self.tcsQueue.put({'hdf_is_open': False})
                 del(self.hdf_file)
 
         except:
@@ -195,7 +197,7 @@ class HdfServer(mpserver.MpServer):
                         self.mprint("%s: %s"%(key, self.data[key]))
                         self.setWriteEnable(self.data[key])
                     elif key == 'create_new_file':
-                        print "HERE: %s"%self.data
+                        #print "HERE: %s"%self.data
                         self.createNewFile(self.data[key])
                     elif key == 'safe_exit':
                         self.safeExit()

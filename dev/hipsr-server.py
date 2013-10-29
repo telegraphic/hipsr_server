@@ -17,7 +17,7 @@ is constantly checked by yet another thread.
 Copyright (c) 2013 The HIPSR collaboration. All rights reserved.
 """
 
-import time, sys, os, signal
+import time, sys, os, signal, random
 from datetime import datetime
 from optparse import OptionParser
 import multiprocessing
@@ -28,11 +28,21 @@ import threading, Queue
 # Imports from hipsr_core
 import hipsr_core.katcp_wrapper as katcp_wrapper
 import hipsr_core.katcp_helpers as katcp_helpers
+from hipsr_core.checkpids import checkpids
+from   hipsr_core.katcp_helpers import squashData, squashSpectrum, getSpectrum
 import hipsr_core.config as config
 from lib.tcs_server import TcsServer
 from lib.plotter_server import PlotterServer
-from lib.katcp_server import KatcpServer
+#from lib.katcp_server import KatcpServer
 from lib.hdf_server import HdfServer
+from lib.katcp_server import KatcpServer, KatcpThread
+
+try:
+    import ujson as json
+    USES_UJSON = True
+except:
+    import json
+    USES_UJSON = False
 
 # Python metadata
 __version__  = config.__version__
@@ -40,7 +50,6 @@ __author__   = config.__author__
 __email__    = config.__email__
 __license__  = config.__license__
 __modified__ = datetime.fromtimestamp(os.path.getmtime(os.path.abspath( __file__ )))
-
 
 def nbprint():
      """ Non-blocking print from queue"""
@@ -61,30 +70,22 @@ def mprint(msg):
     logfile.write(msg + "\n")
     logfile.close()
 
+def changeFlavor(current_flavor, new_flavor):
+    """ Change flavor of firmware """
 
-<<<<<<< HEAD
-=======
-def getSpectraThreaded(fpgalist, queue):
-    """ Starts multiple KATCP servers to collect data from ROACH boards
-    
-    Spawns multiple threads, with each thread retrieving from a single board.
-    A queue is used to block until all threads have completed.   
-    """
-    # Run threads using queue
-    timestamp = time.time()
-    for fpga in fpgalist:
-        katcpQueue.put([fpga, timestamp])
-      
-    # Make sure all threads have completed
-    katcpQueue.join()
+    if current_flavor != new_flavor:
+        mprint("Changing from %s to %s"%(current_flavor, new_flavor))
+        mprint("Reprogramming...")
+        katcp_helpers.reprogram(new_flavor)
+        katcp_helpers.reconfigure(new_flavor)
+    return new_flavor
 
-def ca
-
-
->>>>>>> parent of de983d7... Added support for multiple different firmwares
 #START OF MAIN:
 if __name__ == '__main__':
-    
+
+    # Check if there is another server script running
+    checkpids()
+
     # Option parsing to allow command line arguments to be parsed
     p = OptionParser()
     p.set_usage('hipsr_server.py [options]')
@@ -145,10 +146,10 @@ if __name__ == '__main__':
         print "TCS host:        %15s    port: %5s"%(config.tcs_server,     config.tcs_port)
         print "Plotter host:    %15s    port: %5s"%(config.plotter_host, config.plotter_port)
         print "KATCP port:       %s"%config.katcp_port
-        print "FPGA firmware:    %s"%config.fpga_config[options.flavor]["boffile"]
+        print "FPGA firmware:    %s"%config.fpga_config[options.flavor]["firmware"]
 
         # Configuration parameters
-        boffile      = config.fpga_config[options.flavor]["boffile"]
+        boffile      = config.fpga_config[options.flavor]["firmware"]
         reprogram    = config.reprogram
         reconfigure  = config.reconfigure
         plotter_host = config.plotter_host
@@ -164,7 +165,7 @@ if __name__ == '__main__':
         tcsQueue       = multiprocessing.Queue()
         hdfQueue       = multiprocessing.Queue()
         plotterQueue   = multiprocessing.Queue()
-        katcpQueue     = multiprocessing.Queue()
+        katcpQueue     = Queue.Queue()
         
 
         # From this point, using print queue only
@@ -200,7 +201,7 @@ if __name__ == '__main__':
 
         mprint("\nStarting HDF server")
         mprint("--------------------" )
-        hdfThread = HdfServer(project_id, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue)
+        hdfThread = HdfServer(project_id, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue, flavor=options.flavor)
         hdfThread.daemon = True
         hdfThread.start()
             
@@ -218,8 +219,8 @@ if __name__ == '__main__':
         if not options.dummy:
             time.sleep(0.5)
         if not options.skip_reprogram:
-            katcp_helpers.reprogram()
-            katcp_helpers.reconfigure()
+            katcp_helpers.reprogram(options.flavor)
+            katcp_helpers.reconfigure(options.flavor)
         else:
             print "skipping reprogramming..."
             print "skipping reconfiguration.."
@@ -231,36 +232,26 @@ if __name__ == '__main__':
         
         mprint("\nStarting KATCP servers")
         mprint("------------------------")
-<<<<<<< HEAD
-        katcpThread = KatcpServer(printQueue, mainQueue,  hdfQueue, katcpQueue, plotterQueue, flavor=options.flavor)
-        katcpThread.daemon = False
-        katcpThread.start()
-        
-=======
-        katcp_servers = []
-        for i in range(len(fpgalist)):
-           t = KatcpServer(printQueue, mainQueue, katcpQueue, hdfQueue, plotterQueue)
-           t.daemon = True
-           katcp_servers.append(t)
-           t.start()
->>>>>>> parent of de983d7... Added support for multiple different firmwares
-        mprint("%i KATCP server daemons started."%len(fpgalist))
+        katcpServer = KatcpServer(printQueue, mainQueue, hdfQueue, katcpQueue, plotterQueue, flavor=options.flavor, dummyMode=options.dummy)
+        #katcpThread = KatcpServer(printQueue, mainQueue,  hdfQueue, katcpQueue, plotterQueue, 
+        katcpServer.daemon = True
+        katcpServer.start()
+        #mprint("%i KATCP server daemons started."%len(fpgalist))
         
         # Now to start data accumulation while loop
         mprint("\n Starting data capture")
         mprint("------------------------")
-<<<<<<< HEAD
         #getSpectraThreaded(fpgalist, katcpQueue)
         acc_old, acc_new = 0, 0
-=======
-        getSpectraThreaded(fpgalist, katcpQueue, flavor=flavor)
-        acc_old, acc_new = fpgalist[0].read_int('o_acc_cnt'), fpgalist[0].read_int('o_acc_cnt')
->>>>>>> parent of de983d7... Added support for multiple different firmwares
+        current_ra, current_dec = 0, 0
         allSystemsGo     = True
         crash = False
         hdf_write_enable = False
-
+        current_flavor = options.flavor
+        #print "HERE %s"%options.flavor
+        
         while allSystemsGo:
+
             try:
                 # Print all items in print queue
                 is_empty = False
@@ -279,35 +270,44 @@ if __name__ == '__main__':
                             hdfQueue.put({'safe_exit': True})
                             crash = True
                             allSystemsGo = False
-                            time.sleep(0.1)
+                            time.sleep(0.01)
                         if key == 'kill':
                             print "INFO: kill command received, shutting down"
                             hdfQueue.put({'safe_exit': True})
                             allSystemsGo = False
                             break
+                        if key == 'update_ra':
+                            current_ra = msg[key]
+                        if key == 'update_dec':
+                            current_dec = msg[key]
                         if key == 'flavor':
-                            changeFlavor(msg[key])
-                        if key == 'new_acc':
+                            current_flavor = changeFlavor(current_flavor, msg[key])
+                        if key == 'acc_new':
                             acc_new = msg[key]
 
                 if acc_new > acc_old:
-                    if hdf_write_enable: wr_en = "[WE]"
-                    else: wr_en = "[WD]"
+                    if hdf_write_enable:
+                        wr_en = "[WE]"
+                    else:
+                        wr_en = "[WD]"
+
                     timestamp = time.time()
                     now = time.gmtime(timestamp)
                     now_fmt = "%d-%02d-%02d %02d:%02d:%02d"%(now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
 
-                    ra, dec = float(tcsThread.scan_pointing["MB01_raj"]), float(tcsThread.scan_pointing["MB01_dcj"])
-                    mprint("%s UTC: %s, RA: %02.2f, DEC: %02.2f, Acc: %i"%(wr_en, now_fmt, ra, dec, acc_new))
-                    acc_old=acc_new
+                    ra, dec = float(current_ra), float(current_dec)
+                    print("%s UTC: %s, RA: %02.2f, DEC: %02.2f, Acc: %i"%(wr_en, now_fmt, ra, dec, acc_new))
+                    acc_old = acc_new
                     katcpQueue.put({'new_acc': True})
-
+                    katcpQueue.put({'timestamp': timestamp})
+                   
                 katcpQueue.put({'check_acc': acc_old})
                 time.sleep(0.5)
             except:
                 allSystemsGo = False
                 crash = True
                 mprint("Exception caught!")
+                raise
 
         if not allSystemsGo:
             if crash:
@@ -329,7 +329,7 @@ if __name__ == '__main__':
             hdfThread.join(0.1)
             tcsThread.join(0.1)
             plotterThread.join(0.1)
-            katcpThread.join(0.1)
+            #katcpThread.join(0.1)
             #print("INFO: Threads killed")
 
     except KeyboardInterrupt:
@@ -346,11 +346,13 @@ if __name__ == '__main__':
             hdfThread.terminate()
             tcsThread.terminate()
             plotterThread.terminate()
-            katcpThread.join()
+            #katcpThread.join()
         except:
             pass
         print("INFO: Threads killed")
 
     # Make sure it really dies. HDF thread seems to keep this as a zombie
     print "Exiting."
-    os.kill(int(os.getpid()),  signal.SIGTERM)
+    os.kill(int(os.getpid()), signal.SIGINT)
+    os.kill(int(os.getpid()), signal.SIGTERM)
+    os.kill(int(os.getpid()), signal.SIGKILL)

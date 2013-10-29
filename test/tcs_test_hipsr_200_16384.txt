@@ -1,10 +1,12 @@
-new_file testme.h5
+new_file testme_200_1.h5
 receiver MULTI  
 freq 1400
-band 400
+band 200
 src  FakeusA         
-ra   20.0         
-dec  20.0         
+ra   10:00:15        
+dec  45:45:45
+sleep
+sleep         
 band 1         
 pid P123
 nbeam 13        
@@ -13,7 +15,9 @@ feedrotation STEPPED
 feedangle 1    
 taccum 1       
 dwell 1        
-confname hipsr_200_16384      
+confname hipsr_200_16384
+MB01_raj 10.0
+MB01_dcj 15.0      
 observer DCP     
 obstype scan
 start
@@ -33,4 +37,33 @@ focustan 1
 focusaxi 2     
 focusrot 3     
 utc_cycle_end
-  
+MB01_raj 20.0
+MB01_dcj 25.0   
+sleep
+sleep
+sleep
+sleep
+sleep
+new_file testme_200_3.h5
+freq 1400
+band 200
+src  FakeusB
+confname hipsr_200_16384
+sleep
+sleep
+sleep
+sleep
+sleep
+new_file testme_400_1.h5
+freq 1400
+band -400
+src  FakeusB
+confname hipsr_400_8192
+MB01_raj 30.0
+MB01_dcj 35.0   
+sleep
+sleep
+sleep
+sleep
+sleep
+kill

@@ -116,12 +116,14 @@ class TcsServer(mpserver.MpServer):
         ra = coords.rastring2deg(val)
         self.mprint("%-15s : %s" % ("Source RA", val.strip()))
         self.pointing_data["ra"] = ra
+        self.mainQueue.put({'update_ra' : ra})
         return self.ack_msg
 
     def setDec(self, val):
         dec = coords.decstring2deg(val)
         self.mprint("%-15s : %s" % ("Source DEC", val.strip()))
         self.pointing_data["dec"] = dec
+        self.mainQueue.put({'update_dec' : dec})
         return self.ack_msg
 
     def setReceiver(self, val):
@@ -167,6 +169,7 @@ class TcsServer(mpserver.MpServer):
     def setConfName(self, val=0):
         self.mprint("%-15s : %s" % ("Config name", val.strip()))
         self.obs_setup["conf_name"] = val.strip()
+        self.mainQueue.put({'flavor' : val.strip()})
         return self.ack_msg
 
     def setScanRate(self, val=0):
@@ -242,8 +245,9 @@ class TcsServer(mpserver.MpServer):
 
         if not self.hdf_is_open:
             self.hdfQueue.put({"create_new_file": self.new_filename})
+            self.hdf_is_open = True
             #elif self.new_file_each_obs:
-        #    self.hdfQueue.put({"create_new_file" : None})
+            #self.hdfQueue.put({"create_new_file" : None})
 
         self.obs_setup["date"] = timestamp
         self.pointing_data["timestamp"] = timestamp
@@ -255,12 +259,12 @@ class TcsServer(mpserver.MpServer):
         self.hdfQueue.put({'write_enable': True})
         self.mainQueue.put({'write_enable': True})
         self.hdf_write_enable = True
-
+        
         return date_fmt, hdf_data
 
     def newFile(self, val):
         # Create new file
-        #self.hdfQueue.put({"create_new_file" : val.strip()})
+        self.hdfQueue.put({"create_new_file" : val.strip()})
         self.new_filename = val.strip()
         #print "HERE: %s" % self.new_filename
         return self.ack_msg
@@ -275,10 +279,12 @@ class TcsServer(mpserver.MpServer):
         """ This is essentially a case statement that searches for commands in a dict. """
         return {
             'freq': self.setFreq,
+            'hipsr_freq': self.setFreq,
             'src': self.setSrc,
             'ra': self.setRa,
             'dec': self.setDec,
             'band': self.setBandwidth,
+            'hipsr_band': self.setBandwidth,
             'receiver': self.setReceiver,
             'pid': self.setProjectId,
             'nbeam': self.setNumBeams,
@@ -300,6 +306,7 @@ class TcsServer(mpserver.MpServer):
             'utc_cycle': self.setUtcCycle,
             'utc_cycle_end': self.endUtcCycle,
             'new_file': self.newFile,
+            'newfile': self.newFile,
             'scanrate': self.setScanRate
         }.get(cmd, self.setNoMatch)(val)    # setNoMatch is default if cmd not found
 
@@ -343,7 +350,14 @@ class TcsServer(mpserver.MpServer):
                     else:
                         if self.debug:
                             self.mprint(repr(data))
-
+                        
+                        #if not self.tcsQueue.empty():
+                        #    msg = self.tcsQueue.get()
+                        #   
+                        #   for key in msg.keys():
+                        #       if key == 'hdf_is_open':
+                        #           self.hdf_is_open == msg[key]
+                        
                         # Check for start message
                         is_start = re.search('start%s' % config.tcs_regex_esc, data)
                         if is_start:
@@ -377,6 +391,7 @@ class TcsServer(mpserver.MpServer):
 
                         #is_conf = re.search('confname %s'%config.tcs_regex_esc, data)
                         #if is_conf:
+
                         #    self.mprint("confname rec'd.")
                         #    i.send(self.ack_msg)
 
@@ -387,6 +402,10 @@ class TcsServer(mpserver.MpServer):
                             if cmd[0:2] == 'MB':
                                 recv_msg = self.setScanRaDec(cmd, val)
                                 i.send(recv_msg)
+                                if cmd == 'MB01_raj':
+                                    self.mainQueue.put({'update_ra' : val})
+                                if cmd == 'MB01_dcj':
+                                    self.mainQueue.put({'update_dec' : val})
                             elif cmd[0:8] == 'new_file':
                                 recv_msg = self.commandDict(cmd, val)
                                 i.send(recv_msg)

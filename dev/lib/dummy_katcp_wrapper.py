@@ -71,8 +71,12 @@ class FpgaClient(object):
     def read_int(self, reg_id, blindwrite=True):
         try:
             if self.acc_regs.has_key(reg_id):
-                self.acc_regs[reg_id] = self.acc_regs[reg_id] + 1
+                self.acc_regs[reg_id] += 1
+                if reg_id == 'o_acc_cnt':
+                    pass
+                    #print "%s: reading acc %i"%(self.host, self.acc_regs[reg_id])
                 time.sleep(0.5)
+
                 return self.acc_regs[reg_id]
             elif self.registers.has_key(reg_id):
                 return self.registers[reg_id]
@@ -84,7 +88,7 @@ class FpgaClient(object):
     def read(self, bram_id, num_bytes):
         try:
             if self.data_brams.has_key(bram_id):
-                fmt = '>4096L'
+                fmt = '>%iL'%(num_bytes/4)
                 data = self.random_bandpass()[::2]
                 packed = struct.pack(fmt, *data)
                 return packed
@@ -114,4 +118,7 @@ class FpgaClient(object):
         bp[spike_bin-2:spike_bin+2] += spike
     
         return bp + noise
-        
+
+    def stop(self):
+        """ Fake stop """
+        return True

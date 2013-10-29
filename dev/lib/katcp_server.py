@@ -7,7 +7,19 @@ katcp_server.py
 KATCP Server class for hipsr.
 """
 
-import time, sys, os, socket, random, select, re
+import time, sys, os, signal, random
+from datetime import datetime
+from optparse import OptionParser
+import multiprocessing
+
+import numpy as np
+import threading, Queue
+
+# Imports from hipsr_core
+import hipsr_core.katcp_wrapper as katcp_wrapper
+import hipsr_core.katcp_helpers as katcp_helpers
+from   hipsr_core.katcp_helpers import squashData, squashSpectrum, getSpectrum
+import hipsr_core.config as config
 
 try:
     import ujson as json
@@ -16,116 +28,108 @@ except:
     import json
     USES_UJSON = False
 
-from   hipsr_core.katcp_helpers import stitch, snap, squashData, squashSpectrum, getSpectrum
-import hipsr_core.katcp_wrapper as config
-import hipsr_core.katcp_wrapper as katcp_wrapper
-import hipsr_core.katcp_helpers as katcp_helpers
-import hipsr_core.config as config
-import multiprocessing
-import mpserver
-
-import threading, Queue
-
-class katcpThread(threading.Thread):
+class KatcpThread(threading.Thread):
     """ Server to control ROACH boards"""
     def __init__(self, queue, queue_out, queue_plotter):
         threading.Thread.__init__(self)
-        self.queue = queue
-        self.queue_out = queue_out
-        self.queue_plotter = queue_plotter
+        self.queue          = queue
+        self.queue_out      = queue_out
+        self.queue_plotter  = queue_plotter
         self.server_enabled = True
-    
+
     def toJson(self, npDict):
         """ Converts a dictionary of numpy arrays into a dictionary of lists."""
         for key in npDict.keys():
             for datakey in npDict[key]:
                 try:
                     npDict[key][datakey] = npDict[key][datakey].tolist()
-                except:
-                    warn("katcpServer toJSON is acting strange...", RuntimeWarning)
-        
-        if USES_UJSON:            
+                except AttributeError:
+                    pass
+                    #print npDict
+                    #mprint("katcpServer toJSON is acting strange...")
+                    #raise
+
+        if USES_UJSON:
             return json.dumps(npDict, double_precision=3)
         else:
             return json.dumps(npDict)
-    
+
     def run(self):
         """ Thread run method. Fetch data from roach"""
         try:
           while self.server_enabled:
-            # Get input queue info (FPGA object) 
+            # Get input queue info (FPGA object)
             [fpga, flavor] = self.queue.get()
             beam_id = config.roachlist[fpga.host]
-            
+
             # Grab data from the FPGA
-            time.sleep(random.random()/10) # Spread out 
+            time.sleep(random.random()/10) # Spread out
             data = getSpectrum(fpga, flavor)
-            data["timestamp"] = timestamp
-            hdfData = {'raw_data': { beam_id : data }}     
+            #data["timestamp"] = self.timestamp
+            hdfData = {'raw_data': { beam_id : data }}
             plotData = squashSpectrum(data)
-            
+
             self.queue_out.put(hdfData)
-            
+
             msgdata = {beam_id : {
-                         'xx' : plotData['xx'], 
-                         'yy' : plotData['yy'], 
+                         'xx' : plotData['xx'],
+                         'yy' : plotData['yy'],
                          'timestamp': time.time()}
                        }
-                   
+
             msg = self.toJson(msgdata)
-            self.queue_plotter.append(msg)
-            
+            self.queue_plotter.put(msg)
+
             # Signal to queue task complete
             self.queue.task_done()
         except:
           raise
 
-class KatcpServer(mpserver.MpServer):
+class KatcpServer(threading.Thread):
     """ Server to control ROACH boards"""
-<<<<<<< HEAD
-    def __init__(self, printQueue, mainQueue, hdfQueue, katcpQueue, plotterQueue, flavor):
-=======
-    def __init__(self, printQueue, mainQueue, katcpQueue, hdfQueue, plotterQueue, fpga_config):
->>>>>>> parent of de983d7... Added support for multiple different firmwares
+    def __init__(self, printQueue, mainQueue, hdfQueue, katcpQueue, plotterQueue, flavor, dummyMode=False):
+        threading.Thread.__init__(self)
         self.name = 'katcp_server'
-        
+
+        if dummyMode:
+            import lib.dummy_katcp_wrapper as katcp_wrapper
+        else:
+            import hipsr_core.katcp_wrapper as katcp_wrapper
+
         self.printQueue       = printQueue
+        self.mainQueue        = mainQueue
         self.plotterQueue     = plotterQueue
         self.hdfQueue         = hdfQueue
-<<<<<<< HEAD
         self.katcpQueue       = katcpQueue
         self.flavor           = flavor
-        
+        self.server_enabled   = True
+
         # Internal threads
-        self.threadQueue      = Queue.Queue()
-        self.threadQueue_out  = Queue.Queue()
+        self.threadQueue          = Queue.Queue()
+        self.threadQueue_out      = Queue.Queue()
         self.threadQueue_plotter  = Queue.Queue()
-        
-        #self.fpgalist  = [katcp_wrapper.FpgaClient(roach, config.katcp_port, timeout=10) for roach in config.roachlist]
-        
-        import corr
-        self.fpgalist  = [corr.katcp_wrapper.FpgaClient('192.168.0.49', 7147, timeout=10)]
-        
+
+        self.fpgalist  = [katcp_wrapper.FpgaClient(roach, config.katcp_port, timeout=10) for roach in config.roachlist]
+
         for roach in config.roachlist:
             self.mprint("%s %s"%(roach, config.katcp_port))
-        
+
         for i in range(len(self.fpgalist)):
-           t = katcpThread(self.threadQueue, self.threadQueue_out, self.threadQueue_plotter)
+           t = KatcpThread(self.threadQueue, self.threadQueue_out, self.threadQueue_plotter)
            t.setDaemon(True)
            t.start()
-        
-=======
-        self.fpga_config      = fpga_config
-        self.debug            = False
-        self.timestamp        = time.time()
->>>>>>> parent of de983d7... Added support for multiple different firmwares
-        super(KatcpServer, self).__init__(self.name, printQueue, mainQueue)
-    
+
+        #super(KatcpServer, self).__init__(self.name, printQueue, mainQueue)
+
+    def mprint(self, msg):
+        """ Send a message to the multiprocessing print queue """
+        self.printQueue.put(msg)
+
     def triggerDataCapture(self):
         """ Starts multiple KATCP servers to collect data from ROACH boards
-    
+
         Spawns multiple threads, with each thread retrieving from a single board.
-        A queue is used to block until all threads have completed.   
+        A queue is used to block until all threads have completed.
         """
         # Run threads using queue
         for fpga in self.fpgalist:
@@ -133,10 +137,10 @@ class KatcpServer(mpserver.MpServer):
                 self.threadQueue.put([fpga, self.flavor])
             else:
                 self.mprint("Warning: %s not connected"%fpga.host)
-          
+
         # Make sure all threads have completed
         self.threadQueue.join()
-    
+
     def safeExit(self):
         """ Attempt to close safely. """
         self.mprint("katcp_server: Closing FPGA connections")
@@ -144,7 +148,7 @@ class KatcpServer(mpserver.MpServer):
             fpga.stop()
         self.mprint("katcp_server: FPGA connections closed.")
         self.server_enabled = False
-    
+
     def serverMain(self):
         """ Thread run method. Fetch data from roach"""
         # Start servers threads up
@@ -161,7 +165,7 @@ class KatcpServer(mpserver.MpServer):
                     else:
                         self.mprint("katcp_server: warning: %s is not connected."%self.fpgalist[0].host)
                         self.mainQueue.put({'acc_new' : msg[key]})
-                    
+
                 if key == 'new_acc':
                     #self.mprint("HERE!")
                     self.triggerDataCapture()
@@ -169,28 +173,18 @@ class KatcpServer(mpserver.MpServer):
                         self.hdfQueue.put(self.threadQueue_out.get())
                     while not self.threadQueue_plotter.empty():
                         self.plotterQueue.put(self.threadQueue_plotter.get())
+                if key == 'timestamp':
+                    self.timestamp = msg['timestamp']
+    def run(self):
+        try:
+            self.serverMain()
+            return 0
 
-<<<<<<< HEAD
-            
-=======
-            # Grab data from the FPGA
-            if fpga.is_connected():
-                time.sleep(random.random()/10) # Spread out
-                data = getSpectrum(fpga, fpga_config)
-                data["timestamp"] = self.timestamp
-                hdfData = {'raw_data': { beam_id : data }}
-                self.hdfQueue.put(hdfData)
+        except KeyboardInterrupt:
+             self.mprint("%s: Keyboard interrupt."%self.name)
+             self.safeExit()
 
-                plotData = squashSpectrum(data)
-                msgdata = {beam_id : {
-                             'xx' : plotData['xx'],
-                             'yy' : plotData['yy'],
-                             'timestamp': time.time()}
-                           }
-
-                msg = self.toJsonDict(msgdata)
-                self.plotterQueue.put(msg)
-
-            # Signal to queue task complete
-            self.queue.task_done()
->>>>>>> parent of de983d7... Added support for multiple different firmwares
+        except:
+            #self.mainQueue.put({'crash' : self.name})
+            self.safeExit()
+            raise

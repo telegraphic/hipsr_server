@@ -13,8 +13,8 @@ import time, sys, os, socket, random, select, re
 
 #START OF MAIN:
 if __name__ == '__main__':
-    
-    command_filename = 'tcs_test_hipsr_200_16384.txt'
+
+    command_filename =  sys.argv[1]
     print "\nLoading command file: %s"%command_filename
     command_file = open(command_filename)
     commands = command_file.readlines()
@@ -30,17 +30,13 @@ if __name__ == '__main__':
     
     try:
         for cmd in commands:
-            # Send data
-            print "CMD: %s"%cmd
-            sock.sendall(cmd)
-            time.sleep(0.05)
-
-    finally:
-        print "Sleeping"
-        time.sleep(1)
-        sock.sendall("stop\n")
-        time.sleep(2)
-        sock.sendall("kill\n")
-        #print 'closing socket'
-        #sock.close()
+            if 'sleep' in cmd:
+                time.sleep(1)
+            else:
+                # Send data
+                print "CMD: %s"%cmd
+                sock.sendall(cmd)
+                time.sleep(0.05)
+    except:
+        pass
 
