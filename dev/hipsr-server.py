@@ -28,7 +28,7 @@ import threading, Queue
 # Imports from hipsr_core
 import hipsr_core.katcp_wrapper as katcp_wrapper
 import hipsr_core.katcp_helpers as katcp_helpers
-from hipsr_core.checkpids import checkpids
+
 from   hipsr_core.katcp_helpers import squashData, squashSpectrum, getSpectrum
 import hipsr_core.config as config
 from lib.tcs_server import TcsServer
@@ -36,6 +36,7 @@ from lib.plotter_server import PlotterServer
 #from lib.katcp_server import KatcpServer
 from lib.hdf_server import HdfServer
 from lib.katcp_server import KatcpServer, KatcpThread
+from lib.checkpids import checkpids
 
 try:
     import ujson as json
