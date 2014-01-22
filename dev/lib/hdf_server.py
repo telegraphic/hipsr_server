@@ -121,7 +121,13 @@ class HdfServer(mpserver.MpServer):
     def writeRawData(self, val=None):
         """ Write raw_data row from stored data """
         if self.hdf_is_open and self.data:
+            timestamp = time.time()
             for beam_id in self.data["raw_data"].keys():
+
+                # Timestamp when data is written
+                # This will likely be overwritten in SD-FITS writer
+                self.data["raw_data"][beam_id]["timestamp"] = timestamp
+
                 beam = self.hdf_file.getNode('/raw_data', beam_id)
                 for key in self.data["raw_data"][beam_id].keys():
                     beam.row[key]  = self.data["raw_data"][beam_id][key]
@@ -170,7 +176,17 @@ class HdfServer(mpserver.MpServer):
         except:
             self.mprint("hdf_server: ERROR: Safe exit failed")
             raise
-    
+
+    def closeFile(self, val=None):
+        """ Close a file if this is triggered """
+        self.hdf_write_enable = False
+        self.hdf_is_open      = False
+        self.mprint("hdf_server: closing %s"%self.hdf_file.filename)
+        self.hdf_file.flush()
+        self.hdf_file.close()
+        self.tcsQueue.put({'hdf_is_open': False})
+        del(self.hdf_file)
+
     def serverMain(self):
         """ Main HDF writer routine """
         self.mprint("HDF server: writing to directory %s..."%self.dir_path)
@@ -189,7 +205,8 @@ class HdfServer(mpserver.MpServer):
                   'firmware'        : self.writeFirmwareConfig,
                   'scan_pointing'   : self.writeScanPointing,
                   'create_new_file' : self.createNewFile,
-                  'write_enable'    : self.setWriteEnable
+                  'write_enable'    : self.setWriteEnable,
+                  'close_file'      : self.closeFile
                 }
 
                 for key in self.data.keys():

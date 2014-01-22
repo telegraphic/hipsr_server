@@ -269,6 +269,14 @@ class TcsServer(mpserver.MpServer):
         #print "HERE: %s" % self.new_filename
         return self.ack_msg
 
+    def closeFile(self, val=0):
+        # Close currently open file
+        self.hdfQueue.put({"close_file" : val.strip()})
+        self.hdfQueue.put({'write_enable': False})
+        self.mainQueue.put({'write_enable': False})
+        self.hdf_write_enable = False
+        return self.ack_msg
+
     def kill(self, val=None):
         """ The kill switch - sends shutdowns to all processes """
         #self.mprint("TCS I/O: Kill signal received.")
@@ -307,6 +315,7 @@ class TcsServer(mpserver.MpServer):
             'utc_cycle_end': self.endUtcCycle,
             'new_file': self.newFile,
             'newfile': self.newFile,
+            'closef' : self.closeFile,
             'scanrate': self.setScanRate
         }.get(cmd, self.setNoMatch)(val)    # setNoMatch is default if cmd not found
 
