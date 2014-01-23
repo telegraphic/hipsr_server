@@ -285,6 +285,15 @@ if __name__ == '__main__':
                             current_flavor = changeFlavor(current_flavor, msg[key])
                         if key == 'acc_new':
                             acc_new = msg[key]
+                        if key == 'update_project_id':
+                            project_id = msg[key]
+                            dir_path_curr = dir_path
+                            dir_path_new  = os.path.join(config.data_dir, project_id)
+                            if dir_path_new != dir_path_curr:
+                                dir_path = dir_path_new
+                                if not os.path.exists(dir_path):
+                                    print "Creating directory %s"%dir_path
+                                    os.makedirs(dir_path)
 
                 if acc_new > acc_old:
                     if hdf_write_enable:

@@ -134,6 +134,7 @@ class TcsServer(mpserver.MpServer):
     def setProjectId(self, val):
         self.mprint("%-15s : %s" % ("Project ID", val.strip()))
         self.obs_setup["project_id"] = val.strip()
+        self.mainQueue.put({'update_project_id' : val.strip()})
         return self.ack_msg
 
     def setNumBeams(self, val):
@@ -413,8 +414,14 @@ class TcsServer(mpserver.MpServer):
                                 i.send(recv_msg)
                                 if cmd == 'MB01_raj':
                                     self.mainQueue.put({'update_ra' : val})
+                                    if self.send_udp:
+                                        msg = self.toJsonCmd('tcs-ra', val.strip())
+                                        self.plotterQueue.put(msg)
                                 if cmd == 'MB01_dcj':
                                     self.mainQueue.put({'update_dec' : val})
+                                    if self.send_udp:
+                                        msg = self.toJsonCmd('tcs-dec', val.strip())
+                                        self.plotterQueue.put(msg)
                             elif cmd[0:8] == 'new_file':
                                 recv_msg = self.commandDict(cmd, val)
                                 i.send(recv_msg)

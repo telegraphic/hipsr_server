@@ -82,8 +82,9 @@ class KatcpThread(threading.Thread):
 
             # Signal to queue task complete
             self.queue.task_done()
-        except:
-          raise
+        except RuntimeError:
+            raise RuntimeError("FPGA %s (%s) is not responding or has crashed"%(fpga.host, beam_id))
+
 
 class KatcpServer(threading.Thread):
     """ Server to control ROACH boards"""
