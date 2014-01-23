@@ -187,6 +187,10 @@ class HdfServer(mpserver.MpServer):
         self.tcsQueue.put({'hdf_is_open': False})
         del(self.hdf_file)
 
+    def updateDirPath(self, val):
+        """ Update directory path for project """
+        self.dir_path = val.strip()
+
     def serverMain(self):
         """ Main HDF writer routine """
         self.mprint("HDF server: writing to directory %s..."%self.dir_path)
@@ -206,7 +210,8 @@ class HdfServer(mpserver.MpServer):
                   'scan_pointing'   : self.writeScanPointing,
                   'create_new_file' : self.createNewFile,
                   'write_enable'    : self.setWriteEnable,
-                  'close_file'      : self.closeFile
+                  'close_file'      : self.closeFile,
+                  'update_dir_path' : self.updateDirPath
                 }
 
                 for key in self.data.keys():
