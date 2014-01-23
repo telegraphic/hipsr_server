@@ -264,6 +264,8 @@ if __name__ == '__main__':
                     msg = mainQueue.get()
                     #print "HERE: %s"%msg
                     for key in msg.keys():
+                        if options.verbose:
+                            print key, msg[key]
                         if key == 'write_enable':
                             hdf_write_enable = msg[key]
                         if key == 'crash':
