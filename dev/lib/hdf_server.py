@@ -16,7 +16,7 @@ class HdfServer(mpserver.MpServer):
     """ HDF5 Writer thread """
     def __init__(self, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue, flavor=None):
         self.name = 'hdf_server'
-        aelf.project_id       = 'PXXX'
+        self.project_id       = 'PXXX'
         self.dir_path         = dir_path
         self.hdfQueue         = hdfQueue
         self.printQueue       = printQueue
