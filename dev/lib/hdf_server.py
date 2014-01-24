@@ -14,9 +14,9 @@ import mpserver
 
 class HdfServer(mpserver.MpServer):
     """ HDF5 Writer thread """
-    def __init__(self, project_id, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue, flavor=None):
+    def __init__(self, dir_path, mainQueue, printQueue, hdfQueue, tcsQueue, flavor=None):
         self.name = 'hdf_server'
-        self.project_id       = project_id
+        aelf.project_id       = 'PXXX'
         self.dir_path         = dir_path
         self.hdfQueue         = hdfQueue
         self.printQueue       = printQueue
@@ -187,10 +187,6 @@ class HdfServer(mpserver.MpServer):
         self.tcsQueue.put({'hdf_is_open': False})
         del(self.hdf_file)
 
-    def updateDirPath(self, val):
-        """ Update directory path for project """
-        self.dir_path = val.strip()
-
     def serverMain(self):
         """ Main HDF writer routine """
         self.mprint("HDF server: writing to directory %s..."%self.dir_path)
@@ -210,8 +206,7 @@ class HdfServer(mpserver.MpServer):
                   'scan_pointing'   : self.writeScanPointing,
                   'create_new_file' : self.createNewFile,
                   'write_enable'    : self.setWriteEnable,
-                  'close_file'      : self.closeFile,
-                  'update_dir_path' : self.updateDirPath
+                  'close_file'      : self.closeFile
                 }
 
                 for key in self.data.keys():

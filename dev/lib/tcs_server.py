@@ -134,7 +134,6 @@ class TcsServer(mpserver.MpServer):
     def setProjectId(self, val):
         self.mprint("%-15s : %s" % ("Project ID", val.strip()))
         self.obs_setup["project_id"] = val.strip()
-        self.mainQueue.put({'update_project_id' : val.strip()})
         return self.ack_msg
 
     def setNumBeams(self, val):
