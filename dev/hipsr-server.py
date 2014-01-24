@@ -67,9 +67,6 @@ def nbprint():
 def mprint(msg):
     """ Send a message to the multiprocessing print queue """
     printQueue.put(msg)
-    logfile = open(logfile_path, 'a')
-    logfile.write(msg + "\n")
-    logfile.close()
 
 def changeFlavor(current_flavor, new_flavor):
     """ Change flavor of firmware """
@@ -118,29 +115,18 @@ if __name__ == '__main__':
             katcp_helpers.katcp_wrapper = katcp_wrapper
             KatcpServer.katcp_wrapper   = katcp_wrapper
 
-        if options.project_id:
-            project_id = options.project_id
-        else:
-            project_id = raw_input("Please enter your project ID: ")
 
-        # Start logger
-        print "\nStarting logger"
-        print "-----------------"
 
         now = time.gmtime(time.time())
         now_str    = "%d-%02d-%02d_%02d%02d%02d"%(now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
-        loggerstamp  = "%s_%s.log"%(project_id, now_str)
 
         if options.test: config.data_dir = './test'
-        dir_path    = os.path.join(config.data_dir, project_id)
+        dir_path    = os.path.join(config.data_dir, 'data')
 
         if not os.path.exists(dir_path):
             print "Creating directory %s"%dir_path
             os.makedirs(dir_path)
 
-        logfile_path = os.path.join(dir_path, loggerstamp)
-
-        print "Logfile %s created in %s"%(loggerstamp, dir_path)
 
         print "\nConfiguration"
         print "-------------"
@@ -287,20 +273,6 @@ if __name__ == '__main__':
                             current_flavor = changeFlavor(current_flavor, msg[key])
                         if key == 'acc_new':
                             acc_new = msg[key]
-                        if key == 'update_project_id':
-                            if options.verbose:
-                                print "Updating project ID to %s"%msg[key]
-                            project_id = msg[key]
-                            dir_path_curr = dir_path
-                            dir_path_new  = os.path.join(config.data_dir, project_id)
-                            if dir_path_new != dir_path_curr:
-                                dir_path = dir_path_new
-                                if options.verbose:
-                                    print "New dir path: %s"%dir_path
-                                if not os.path.exists(dir_path):
-                                    print "Creating directory %s"%dir_path
-                                    os.makedirs(dir_path)
-                                hdfQueue.put({'update_dir_path' : dir_path})
 
                 if acc_new > acc_old:
                     if hdf_write_enable:
