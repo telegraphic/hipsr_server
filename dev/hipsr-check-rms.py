@@ -11,6 +11,7 @@ Copyright (c) 2013 The HIPSR collaboration. All rights reserved.
 """
 
 import time
+from datetime import datetime
 import numpy as np
 
 import hipsr_core.katcp_helpers
@@ -18,6 +19,7 @@ import hipsr_core.config as config
 import hipsr_core.katcp_wrapper as katcp_wrapper
 
 from lib.colorterm import colorterm as cprint
+
 
 # Python metadata
 __version__  = config.__version__
