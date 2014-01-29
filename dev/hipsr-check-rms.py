@@ -40,7 +40,7 @@ def color_code(val):
         return cprint.red("%2.2f"%val)
     elif val > 10:
         return cprint.yellow("%2.2f"%val)
-    else
+    else:
         return "%2.2f"%val
 
 if __name__ == '__main__':
@@ -70,22 +70,23 @@ if __name__ == '__main__':
     
     # Read RMS levels  
     print cprint.green("\nROACH RMS LEVELS:")
-    print cprint.green("-----------------\n\n")
+    print cprint.green("-----------------\n")
 
-    print "    --------------------------"
-    print "    | BEAM |  POL A |  POL B |"
-    print "    |------------------------|"
+    print "    ------------------------------"
+    print "    |   BEAM    | POL A |  POL B |"
+    print "    |----------------------------|"
 
     to_print = []
     for fpga in fpgalist:        
         levels = katcp_helpers.getSpectrum(fpga, 'rms_levels')
         rms_x, rms_y = color_code(levels['rms_x']), color_code(levels['rms_y'])
-        to_print.append("    |  %02i  |  %s |  %s |"%(roachlist[fpga.host], rms_x, rms_y)
+        to_print.append("    |  %s  |  %s |   %s |"%(roachlist[fpga.host], rms_x, rms_y))
 
     to_print.sort()
 
     for line in to_print:
         print line
+    print "    |----------------------------|\n"
 
     if expert_mode:
         # Read NAR levels
