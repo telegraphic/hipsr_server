@@ -56,7 +56,6 @@ class KatcpThread(threading.Thread):
 
     def run(self):
         """ Thread run method. Fetch data from roach"""
-        runtime_errors = 0
         while self.server_enabled:
             try:
                 # Get input queue info (FPGA object)
@@ -82,6 +81,7 @@ class KatcpThread(threading.Thread):
 
                     msg = self.toJson(msgdata)
                     self.queue_plotter.put(msg)
+
                 elif cmd == 'change_flavor':
                     msg = "\tProgramming %s" % fpga.host
                     print msg
@@ -97,12 +97,12 @@ class KatcpThread(threading.Thread):
                         except:
                             print "programming timed out. There's probably something up"
 
-                for key in config.fpga_config[flavor].keys():
-                    if key != "firmware":
-                        fpga.write_int(key, config.fpga_config[flavor][key])
-                        
-                fpga.write_int('master_reset', 0)
-                fpga.write_int('master_reset', 1)
+                    for key in config.fpga_config[flavor].keys():
+                        if key != "firmware":
+                            fpga.write_int(key, config.fpga_config[flavor][key])
+
+                    fpga.write_int('master_reset', 0)
+                    fpga.write_int('master_reset', 1)
 
             except RuntimeError:
                 time.sleep(2)
