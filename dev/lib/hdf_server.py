@@ -190,7 +190,7 @@ class HdfServer(mpserver.MpServer):
     def changeFlavor(self, flavor):
         """ Change FPGA config flavor """
         self.flavor = flavor
-        self.closeFile()
+        #self.closeFile()
 
     def serverMain(self):
         """ Main HDF writer routine """
