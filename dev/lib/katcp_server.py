@@ -63,7 +63,7 @@ class KatcpThread(threading.Thread):
             beam_id = config.roachlist[fpga.host]
 
             # Grab data from the FPGA
-            time.sleep(float(beam_id) / 26)         # Spread out
+            time.sleep(float(beam_id.split("_")[1]) / 26)         # Spread out
             data = getSpectrum(fpga, flavor)
             #data["timestamp"] = self.timestamp
             hdfData = {'raw_data': { beam_id : data }}
