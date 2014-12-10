@@ -81,8 +81,6 @@ class KatcpThread(threading.Thread):
                 msg = self.toJson(msgdata)
                 self.queue_plotter.put(msg)
 
-                # Signal to queue task complete
-                self.queue.task_done()
 
             except RuntimeError:
                 runtime_errors += 1
@@ -93,6 +91,11 @@ class KatcpThread(threading.Thread):
                 else:
                     raise RuntimeError("FPGA %s (%s) is not responding or has crashed" % (fpga.host, beam_id))
                 time.sleep(2)
+
+            finally:
+                # Signal to queue task complete
+                self.queue.task_done()
+
 
 
 
@@ -188,8 +191,8 @@ class KatcpServer(threading.Thread):
                     self.timestamp = msg['timestamp']
 
                 if key == 'pause':
-                    self.mprint("katcp_server: pausing for 10s")
-                    time.sleep(10)
+                    self.mprint("katcp_server: pausing for 8s")
+                    time.sleep(8)
 
 
     def run(self):
