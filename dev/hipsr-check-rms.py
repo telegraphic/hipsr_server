@@ -96,9 +96,9 @@ if __name__ == '__main__':
             levels = katcp_helpers.getSpectrum(fpga, 'rms_levels')
             n_bits_x, n_bits_y = np.log2(levels['nar_x_on']), np.log2(levels['nar_y_on'])
             if n_bits_x > 30 or n_bits_y > 30:
-                print cprint.red( "%s NAR power (bits): %2.2f (A), %2.2f (B)"%(roachlist[fpga.host], n_bits_x, n_bits_y))
+                print cprint.red( "%s NAR power (bits): %2.2f (A), %2.2f (B)" % (roachlist[fpga.host], n_bits_x, n_bits_y))
             else:
-                print "%s NAR power (bits): %2.2f (A), %2.2f (B)"%(roachlist[fpga.host], n_bits_x, n_bits_y)
+                print "%s NAR power (bits): %2.2f (A), %2.2f (B)" % (roachlist[fpga.host], n_bits_x, n_bits_y)
 
     # Close connections
     for fpga in fpgalist:

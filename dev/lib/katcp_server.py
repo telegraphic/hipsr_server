@@ -63,7 +63,7 @@ class KatcpThread(threading.Thread):
             beam_id = config.roachlist[fpga.host]
 
             # Grab data from the FPGA
-            time.sleep(random.random()/10) # Spread out
+            time.sleep(float(beam_id) / 26)         # Spread out
             data = getSpectrum(fpga, flavor)
             #data["timestamp"] = self.timestamp
             hdfData = {'raw_data': { beam_id : data }}
@@ -71,10 +71,10 @@ class KatcpThread(threading.Thread):
 
             self.queue_out.put(hdfData)
 
-            msgdata = {beam_id : {
-                         'xx' : plotData['xx'],
-                         'yy' : plotData['yy'],
-                         'timestamp': time.time()}
+            msgdata = {beam_id: {
+                           'xx': plotData['xx'],
+                           'yy': plotData['yy'],
+                           'timestamp': time.time()}
                        }
 
             msg = self.toJson(msgdata)
@@ -83,7 +83,7 @@ class KatcpThread(threading.Thread):
             # Signal to queue task complete
             self.queue.task_done()
         except RuntimeError:
-            raise RuntimeError("FPGA %s (%s) is not responding or has crashed"%(fpga.host, beam_id))
+            raise RuntimeError("FPGA %s (%s) is not responding or has crashed" % (fpga.host, beam_id))
 
 
 class KatcpServer(threading.Thread):
