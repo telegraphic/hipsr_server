@@ -85,21 +85,22 @@ class KatcpThread(threading.Thread):
                 elif cmd == 'change_flavor':
                     msg = "\tProgramming %s" % fpga.host
                     print msg
-                    fpga.progdev(config.fpga_config[self.flavor]["firmware"])
+                    fpga.progdev(config.fpga_config[flavor]["firmware"])
                     time.sleep(2)
 
                     registers = fpga.listdev()
                     if len(registers) == 0:
                         print "Warning: %s doesn't appear to be programmed. Attempting to reprogram...." % fpga.host
                         try:
-                            fpga.progdev(config.fpga_config[self.flavor]["firmware"])
+                            fpga.progdev(config.fpga_config[flavor]["firmware"])
                             time.sleep(1)
                         except:
                             print "programming timed out. There's probably something up"
 
-                for key in config.fpga_config[self.flavor].keys():
+                for key in config.fpga_config[flavor].keys():
                     if key != "firmware":
-                        fpga.write_int(key, config.fpga_config[self.flavor][key])
+                        fpga.write_int(key, config.fpga_config[flavor][key])
+                        
                 fpga.write_int('master_reset', 0)
                 fpga.write_int('master_reset', 1)
 
