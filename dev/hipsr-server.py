@@ -271,6 +271,7 @@ if __name__ == '__main__':
                             if current_flavor != msg[key]:
                                 katcpQueue.put({'change_flavor' : msg[key]})
                                 hdfQueue.put({'change_flavor' : msg[key]})
+                                current_flavor = msg[key]
                                 #current_flavor = changeFlavor(current_flavor, msg[key])
                         if key == 'acc_new':
                             acc_new = msg[key]
