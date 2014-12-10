@@ -170,6 +170,7 @@ class TcsServer(mpserver.MpServer):
         self.mprint("%-15s : %s" % ("Config name", val.strip()))
         self.obs_setup["conf_name"] = val.strip()
         self.mainQueue.put({'flavor' : val.strip()})
+        time.sleep(8)
         return self.ack_msg
 
     def setScanRate(self, val=0):
