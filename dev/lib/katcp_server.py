@@ -56,34 +56,44 @@ class KatcpThread(threading.Thread):
 
     def run(self):
         """ Thread run method. Fetch data from roach"""
-        try:
-          while self.server_enabled:
-            # Get input queue info (FPGA object)
-            [fpga, flavor] = self.queue.get()
-            beam_id = config.roachlist[fpga.host]
+        runtime_errors = 0
+        while self.server_enabled:
+            try:
+                # Get input queue info (FPGA object)
+                [fpga, flavor] = self.queue.get()
+                beam_id = config.roachlist[fpga.host]
 
-            # Grab data from the FPGA
-            time.sleep(float(beam_id.split("_")[1]) / 26)         # Spread out
-            data = getSpectrum(fpga, flavor)
-            #data["timestamp"] = self.timestamp
-            hdfData = {'raw_data': { beam_id : data }}
-            plotData = squashSpectrum(data)
+                # Grab data from the FPGA
+                time.sleep(float(beam_id.split("_")[1]) / 26)         # Spread out
+                data = getSpectrum(fpga, flavor)
+                #data["timestamp"] = self.timestamp
+                hdfData = {'raw_data': { beam_id : data }}
+                plotData = squashSpectrum(data)
 
-            self.queue_out.put(hdfData)
+                self.queue_out.put(hdfData)
 
-            msgdata = {beam_id: {
-                           'xx': plotData['xx'],
-                           'yy': plotData['yy'],
-                           'timestamp': time.time()}
-                       }
+                msgdata = {beam_id: {
+                               'xx': plotData['xx'],
+                               'yy': plotData['yy'],
+                               'timestamp': time.time()}
+                           }
 
-            msg = self.toJson(msgdata)
-            self.queue_plotter.put(msg)
+                msg = self.toJson(msgdata)
+                self.queue_plotter.put(msg)
 
-            # Signal to queue task complete
-            self.queue.task_done()
-        except RuntimeError:
-            raise RuntimeError("FPGA %s (%s) is not responding or has crashed" % (fpga.host, beam_id))
+                # Signal to queue task complete
+                self.queue.task_done()
+
+            except RuntimeError:
+                runtime_errors += 1
+                if runtime_errors <= 2:
+                    pass
+                elif runtime_errors <= 4:
+                    print "Warning, FPGA % (fpga.host, beam_id) not responding"
+                else:
+                    raise RuntimeError("FPGA %s (%s) is not responding or has crashed" % (fpga.host, beam_id))
+                time.sleep(2)
+
 
 
 class KatcpServer(threading.Thread):
