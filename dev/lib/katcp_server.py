@@ -60,37 +60,52 @@ class KatcpThread(threading.Thread):
         while self.server_enabled:
             try:
                 # Get input queue info (FPGA object)
-                [fpga, flavor] = self.queue.get()
+                [fpga, flavor, cmd] = self.queue.get()
                 beam_id = config.roachlist[fpga.host]
 
                 # Grab data from the FPGA
                 time.sleep(float(beam_id.split("_")[1]) / 26)         # Spread out
-                data = getSpectrum(fpga, flavor)
-                #data["timestamp"] = self.timestamp
-                hdfData = {'raw_data': { beam_id : data }}
-                plotData = squashSpectrum(data)
 
-                self.queue_out.put(hdfData)
+                if cmd == 'trigger_capture':
+                    data = getSpectrum(fpga, flavor)
+                    #data["timestamp"] = self.timestamp
+                    hdfData = {'raw_data': { beam_id : data }}
+                    plotData = squashSpectrum(data)
 
-                msgdata = {beam_id: {
-                               'xx': plotData['xx'],
-                               'yy': plotData['yy'],
-                               'timestamp': time.time()}
-                           }
+                    self.queue_out.put(hdfData)
 
-                msg = self.toJson(msgdata)
-                self.queue_plotter.put(msg)
+                    msgdata = {beam_id: {
+                                   'xx': plotData['xx'],
+                                   'yy': plotData['yy'],
+                                   'timestamp': time.time()}
+                               }
 
+                    msg = self.toJson(msgdata)
+                    self.queue_plotter.put(msg)
+                elif cmd == 'change_flavor':
+                    msg = "\tProgramming %s" % fpga.host
+                    print msg
+                    fpga.progdev(config.fpga_config[self.flavor]["firmware"])
+                    time.sleep(2)
+
+                    registers = fpga.listdev()
+                    if len(registers) == 0:
+                        print "Warning: %s doesn't appear to be programmed. Attempting to reprogram...." % fpga.host
+                        try:
+                            fpga.progdev(config.fpga_config[self.flavor]["firmware"])
+                            time.sleep(1)
+                        except:
+                            print "programming timed out. There's probably something up"
+
+                for key in config.fpga_config[self.flavor].keys():
+                    if key != "firmware":
+                        fpga.write_int(key, config.fpga_config[self.flavor][key])
+                fpga.write_int('master_reset', 0)
+                fpga.write_int('master_reset', 1)
 
             except RuntimeError:
-                runtime_errors += 1
-                if runtime_errors <= 2:
-                    pass
-                elif runtime_errors <= 4:
-                    print "Warning, FPGA % (fpga.host, beam_id) not responding"
-                else:
-                    raise RuntimeError("FPGA %s (%s) is not responding or has crashed" % (fpga.host, beam_id))
                 time.sleep(2)
+                print "Warning, FPGA % (fpga.host, beam_id) not responding"
 
             finally:
                 # Signal to queue task complete
@@ -148,7 +163,24 @@ class KatcpServer(threading.Thread):
         # Run threads using queue
         for fpga in self.fpgalist:
             if fpga.is_connected():
-                self.threadQueue.put([fpga, self.flavor])
+                self.threadQueue.put([fpga, self.flavor, 'trigger_capture'])
+            else:
+                self.mprint("Warning: %s not connected"%fpga.host)
+
+        # Make sure all threads have completed
+        self.threadQueue.join()
+
+    def changeFlavor(self, flavor):
+        """ Starts multiple KATCP servers to collect data from ROACH boards
+
+        Spawns multiple threads, with each thread retrieving from a single board.
+        A queue is used to block until all threads have completed.
+        """
+        self.flavor = flavor
+        # Run threads using queue
+        for fpga in self.fpgalist:
+            if fpga.is_connected():
+                self.threadQueue.put([fpga, self.flavor, 'change_flavor'])
             else:
                 self.mprint("Warning: %s not connected"%fpga.host)
 
@@ -172,6 +204,10 @@ class KatcpServer(threading.Thread):
             msg = self.katcpQueue.get()
             #self.mprint("HERE3!")
             for key in msg.keys():
+
+                if key == 'timestamp':
+                    self.timestamp = msg['timestamp']
+
                 if key == 'check_acc':
                     if self.fpgalist[0].is_connected():
                         acc_new = self.fpgalist[0].read_int('o_acc_cnt')
@@ -187,12 +223,14 @@ class KatcpServer(threading.Thread):
                         self.hdfQueue.put(self.threadQueue_out.get())
                     while not self.threadQueue_plotter.empty():
                         self.plotterQueue.put(self.threadQueue_plotter.get())
-                if key == 'timestamp':
-                    self.timestamp = msg['timestamp']
 
-                if key == 'pause':
-                    self.mprint("katcp_server: pausing for 8s")
-                    time.sleep(8)
+                if key == 'change_flavor':
+                    self.mprint("katcp_server: FPGA config change required")
+                    self.changeFlavor(msg[key])
+                    while not self.threadQueue_out.empty():
+                        self.hdfQueue.put(self.threadQueue_out.get())
+                    while not self.threadQueue_plotter.empty():
+                        self.plotterQueue.put(self.threadQueue_plotter.get())
 
 
     def run(self):
