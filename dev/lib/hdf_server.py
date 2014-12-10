@@ -187,6 +187,11 @@ class HdfServer(mpserver.MpServer):
         self.tcsQueue.put({'hdf_is_open': False})
         del(self.hdf_file)
 
+    def changeFlavor(self, flavor):
+        """ Change FPGA config flavor """
+        self.flavor = flavor
+        self.closeFile()
+
     def serverMain(self):
         """ Main HDF writer routine """
         self.mprint("HDF server: writing to directory %s..."%self.dir_path)
@@ -218,6 +223,8 @@ class HdfServer(mpserver.MpServer):
                         self.createNewFile(self.data[key])
                     elif key == 'safe_exit':
                         self.safeExit()
+                    elif key == 'change_flavor':
+                        self.changeFlavor(self.data[key])
                     elif self.hdf_write_enable and self.hdf_is_open:
                          validKeys[key](self.data[key])
                 time.sleep(1e-6)
