@@ -268,7 +268,9 @@ if __name__ == '__main__':
                         if key == 'update_dec':
                             current_dec = msg[key]
                         if key == 'flavor':
-                            current_flavor = changeFlavor(current_flavor, msg[key])
+                            if current_flavor != msg[key]:
+                                katcpQueue.put('pause')
+                                current_flavor = changeFlavor(current_flavor, msg[key])
                         if key == 'acc_new':
                             acc_new = msg[key]
 

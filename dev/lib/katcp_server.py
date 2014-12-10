@@ -176,6 +176,12 @@ class KatcpServer(threading.Thread):
                         self.plotterQueue.put(self.threadQueue_plotter.get())
                 if key == 'timestamp':
                     self.timestamp = msg['timestamp']
+
+                if key == 'pause':
+                    self.mprint("katcp_server: pausing for 10s")
+                    time.sleep(10)
+
+
     def run(self):
         try:
             self.serverMain()
